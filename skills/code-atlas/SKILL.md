@@ -5,7 +5,13 @@ description: Draw an interactive map of one or more TypeScript/JavaScript repos 
 
 # code-atlas
 
-`code-atlas` is an npm CLI (`npx code-atlas`). It runs locally and writes one self-contained HTML file.
+`code-atlas` is a CLI that runs locally and writes one self-contained HTML file. Run it straight from GitHub (no install needed):
+
+```bash
+npx -y github:frankzoey-lab/code-atlas --help
+```
+
+Below, `ATLAS` means `npx -y github:frankzoey-lab/code-atlas`. The first run downloads and builds it (about a minute); later runs use the npx cache.
 
 ## Workflow
 
@@ -14,7 +20,7 @@ description: Draw an interactive map of one or more TypeScript/JavaScript repos 
 2. **Draft a workspace.**
 
    ```bash
-   npx -y code-atlas init --yes --dir atlas --repo <repo1> --repo <repo2>
+   ATLAS init --yes --dir atlas --repo <repo1> --repo <repo2>
    ```
 
    Read the printed summary: each repo's role (frontend / backend / library), the detected HTTP links (`from → to`, the env base and how many calls matched), Socket.io links, and how many feature rules were drafted.
@@ -28,10 +34,10 @@ description: Draw an interactive map of one or more TypeScript/JavaScript repos 
 4. **Build and open.**
 
    ```bash
-   npx -y code-atlas atlas/atlas.workspace.json --out atlas/atlas.html --open
+   ATLAS atlas/atlas.workspace.json --out atlas/atlas.html --open
    ```
 
-   For a single repo without init: `npx -y code-atlas <path> --out atlas.html --open`.
+   For a single repo without init: `ATLAS <path> --out atlas.html --open`.
 
 5. **Report back.** Tell the user where the HTML is, how to use it (Focus tab: pick a file or function in the tree; Full map tab: turn features on), and summarize the `Unmatched:` lines — calls with no matching route and socket events that are only emitted or only listened to are often real bugs or dead code.
 

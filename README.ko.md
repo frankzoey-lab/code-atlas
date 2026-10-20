@@ -13,6 +13,15 @@ TypeScript · JavaScript 저장소의 파일, 함수, 호출 관계를 HTML 지�
 
 ## 빠르게 시작
 
+설치 없이 GitHub 에서 바로 실행합니다.
+
+```bash
+npx -y github:frankzoey-lab/code-atlas init
+npx -y github:frankzoey-lab/code-atlas atlas/atlas.workspace.json --open
+```
+
+npm 에 올라간 뒤에는 짧게 `npx code-atlas …` 로도 됩니다.
+
 ```bash
 # repo 를 하나 이상 가져와(로컬 경로 · git 주소) workspace 초안 만들기
 npx code-atlas init

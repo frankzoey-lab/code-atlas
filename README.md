@@ -13,6 +13,15 @@ It runs locally. Your code is never uploaded anywhere (see [Jev](#optional-class
 
 ## Quick start
 
+Run it straight from GitHub — nothing to install:
+
+```bash
+npx -y github:frankzoey-lab/code-atlas init
+npx -y github:frankzoey-lab/code-atlas atlas/atlas.workspace.json --open
+```
+
+Once it is on npm, the shorter `npx code-atlas …` works the same way:
+
 ```bash
 # import one or more repos (local paths or git URLs) and draft a workspace
 npx code-atlas init
