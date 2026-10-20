@@ -85,7 +85,9 @@ export async function runInit(options: InitOptions): Promise<InitResult | undefi
       else log(t('init.httpExternal', { from: l.from, base: l.base[0], count: hits }));
     }
     for (const s of links.socket) log(t('init.socketLink', { client: s.client, server: s.server }));
-    for (const r of repos) log(t('init.features', { name: r.name, count: r.features.length }));
+    for (const r of repos) {
+      log(t('init.features', { name: r.name, files: r.graph.meta.files, count: r.features.length, names: r.features.map((f) => f.name).join(', ') || '-' }));
+    }
 
     if (!options.yes) {
       const answer = (await ask(t('init.confirm', { dir: relative(process.cwd(), outDir) || '.' }))).trim().toLowerCase();

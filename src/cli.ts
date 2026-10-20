@@ -8,7 +8,7 @@ import { loadConfig, ResolvedConfig } from './config.js';
 import { extract } from './extract/index.js';
 import { ensureRepo } from './fetch-repo.js';
 import { findTsconfig } from './extract/project.js';
-import { AtlasGraph } from './graph.js';
+import { AtlasGraph, OTHER_FEATURE } from './graph.js';
 import { Lang, setLang, t, tm } from './i18n.js';
 import { runInit } from './init.js';
 import { renderHtml } from './render.js';
@@ -89,11 +89,32 @@ function blockDrafts(configs: [path: string | undefined, config: ResolvedConfig]
   process.exit(1);
 }
 
-/** 규칙에 맞는 파일이 하나도 없는 기능 (순서 실수 · 잘못된 glob) */
-function warnEmptyFeatures(graph: AtlasGraph, config: ResolvedConfig, repo: string) {
-  const used = new Set(graph.nodes.filter((n) => n.kind === 'file').map((n) => n.feature));
-  for (const rule of config.featureRules) {
-    if (!used.has(rule.name)) console.error(t('cli.warning', { text: t('warn.emptyFeature', { repo, feature: rule.name }) }));
+/** 기능별 파일 수를 한 줄로 알리고, 규칙에 맞는 파일이 하나도 없는 기능(순서 실수 · 잘못된 glob)은 경고한다 */
+function reportFeatures(graph: AtlasGraph, config: ResolvedConfig, repo: string) {
+  if (!config.featureRules.length) return;
+  const files = graph.nodes.filter((n) => n.kind === 'file' && !n.boundary);
+  const count = new Map<string, number>();
+  for (const n of files) count.set(n.feature, (count.get(n.feature) ?? 0) + 1);
+  const pct = (n: number) => `${Math.round((n / files.length) * 100)}%`;
+  // 그룹은 처음 나온 자리에 묶어 'Universe 211 (66%): Genie 52, …' 로
+  // 같은 이름 규칙이 여럿이면 (include 를 나눠 적은 경우) 한 기능으로 센다
+  const rules = [...new Map(config.featureRules.map((r) => [r.name, r])).values()];
+  const parts: string[] = [];
+  const done = new Set<string>();
+  for (const rule of rules) {
+    if (!rule.group) { parts.push(`${rule.name} ${count.get(rule.name) ?? 0}`); continue; }
+    if (done.has(rule.group)) continue;
+    done.add(rule.group);
+    const members = rules.filter((r) => r.group === rule.group);
+    const total = members.reduce((a, r) => a + (count.get(r.name) ?? 0), 0);
+    parts.push(`[${rule.group} ${total} (${pct(total)}): ${members.map((r) => `${r.name} ${count.get(r.name) ?? 0}`).join(', ')}]`);
+  }
+  const other = count.get(OTHER_FEATURE.name) ?? 0;
+  const top = rules.reduce((a, r) => ((count.get(r.name) ?? 0) > (count.get(a.name) ?? 0) ? r : a), rules[0]);
+  const largest = `${top.name} ${pct(count.get(top.name) ?? 0)}`;
+  console.error(t('cli.features', { repo, files: files.length, list: parts.join(', '), other, otherPct: pct(other), largest }));
+  for (const rule of rules) {
+    if (!count.get(rule.name)) console.error(t('cli.warning', { text: t('warn.emptyFeature', { repo, feature: rule.name }) }));
   }
 }
 
@@ -112,7 +133,7 @@ async function buildRepo(repo: string, out: string): Promise<AtlasGraph> {
   if (graph.meta.scope && files === 0) console.error(t('cli.scopeEmpty', { scope: graph.meta.scope }));
   else if (files === 0) console.error(t('cli.warning', { text: t('warn.noFiles', { repo, tsconfig: config.explicitTsconfig ? config.tsconfig : findTsconfig(repo) ?? '-' }) }));
   // 경로 규칙 기준으로 본다 (Jev 분류 전)
-  else if (!graph.meta.scope) warnEmptyFeatures(graph, config, repo);
+  else if (!graph.meta.scope) reportFeatures(graph, config, repo);
   await classify(graph, config, repo, out);
   console.error(t('cli.extracted', { files, symbols, edges, secs: secs(started) }));
   return graph;
@@ -132,7 +153,7 @@ async function buildWorkspace(file: string, out: string): Promise<AtlasGraph> {
   const repos = extractWorkspace(ws, configs);
   for (const r of repos) {
     if (!r.graph.meta.files) console.error(t('cli.warning', { text: t('warn.noFiles', { repo: r.name, tsconfig: r.config.explicitTsconfig ? r.config.tsconfig : findTsconfig(r.path) ?? '-' }) }));
-    else warnEmptyFeatures(r.graph, r.config, r.name);
+    else reportFeatures(r.graph, r.config, r.name);
   }
   for (const repo of repos) await classify(repo.graph, repo.config, repo.path, out, ` (${repo.name})`);
   const { graph, warnings } = assembleWorkspace(ws, repos);

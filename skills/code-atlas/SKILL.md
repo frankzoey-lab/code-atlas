@@ -20,28 +20,62 @@ Every run checks GitHub for the latest commit, so it needs a network connection;
 2. **Draft a workspace.**
 
    ```bash
-   npx -y github:frankzoey-lab/code-atlas init --yes --dir atlas --repo <repo1> --repo <repo2>
+   npx -y github:frankzoey-lab/code-atlas init --yes --lang en --dir atlas --repo <repo1> --repo <repo2>
    ```
 
-   Read the printed summary: each repo's role (frontend / backend / library), the detected HTTP links (`from → to`, the env base and how many calls matched), Socket.io links, and how many feature rules were drafted.
+   Read the printed summary: each repo's role (frontend / backend / library), the detected HTTP links (`from → to`, the env base and how many calls matched), Socket.io links, and per repo its file count, its config file and the drafted feature names (`web (316 files) → web.atlas.json: 3 draft feature rules (…)`). Always pass `--lang en` so the output matches the formats quoted here.
 
-3. **Refine the feature rules — required.** init marks every `atlas/<repo>.atlas.json` with `"draft": true`, and the build refuses to run until you remove it. The draft only groups files by folder name; it often puts nested folders under the wrong rule and lumps most files into one feature. Rewrite it so the features match how the team talks about the product:
-   - Read `docs/`, `README`, `CLAUDE.md` / `AGENTS.md` and the folder tree (for a backend, the folders under `src/modules/` or similar).
-   - Each feature: `name`, `include` (globs relative to that repo; **the first matching rule wins**, so put narrower folders before broader ones), a one-line `description`, and either a `color` (hex) or a `group`.
-   - Aim for 5–12 features per repo. No feature should hold more than about a third of the files, and **Other** should be small; exclude non-product folders (tests, scripts, archives, seeds) instead.
-   - With six or more features, put them in 2–5 `groups` (`"groups": [{ "name": "…", "color": "#hex", "description": "…" }]`, and `"group": "…"` on each feature). Features in a group without their own color get shades of the group color.
-   - Then delete `"draft": true`. Only pass `--allow-draft` if the user explicitly wants the raw draft.
-   - If a frontend calls a backend through something other than `process.env.X` (for example `this.baseUrl` in an API client class), add it to `http` in `atlas/atlas.workspace.json` with `files` to scope it.
+3. **Refine the feature rules — required.** init marks **every** `atlas/<repo>.atlas.json` with `"draft": true`, and the build refuses to run while any of them still has it — refine all repos before building. The draft only groups files by folder name; it often puts nested folders under the wrong rule and lumps most files into one feature. Rewrite it so the features match how the team talks about the product.
 
-4. **Build and open.**
+   **Where to look**
+   - `docs/`: a doc's front matter often lists the paths it covers (for example `paths:`); these are the best feature boundaries when present. Topic folders under `docs/` usually name the features. When two docs list the same file, decide which feature owns it and put that rule first.
+   - `README`, `CLAUDE.md` / `AGENTS.md`, and the folder tree (for a backend, the folders under `src/modules/` or similar; for a frontend, `app/` routes, `components/`, `hooks/`, `store/`).
+   - The repo is read-only input: never edit files in it (git URLs are cloned under `~/.cache/code-atlas/repos/`).
+
+   **Config format** (`atlas/<repo>.atlas.json`)
+   ```json
+   {
+     "exclude": ["…the defaults init wrote…", "test/**", "scripts/**"],
+     "groups": [{ "name": "Assistant", "color": "#7a4bc2", "description": "One line" }],
+     "features": [
+       { "name": "Chat", "group": "Assistant", "include": ["src/chat/**"], "description": "One line" },
+       { "name": "Billing", "color": "#d9480f", "include": ["src/billing/**"], "description": "One line" }
+     ]
+   }
+   ```
+   - `include` / `exclude` are [picomatch](https://github.com/micromatch/picomatch) globs relative to the repo root, matched against the TS/JS source files the repo's tsconfig includes. Special characters in Next.js folder names:
+     - `app/(marketing)/**` does **not** match the folder `(marketing)` — parentheses are glob groups. Write `app/[(]marketing[)]/**`.
+     - `app/[id]/**` happens to match `[id]` but also one-letter folders `i` and `d`. Write `app/[[]id]/**` (and `[[][[]...slug]]` for `[[...slug]]`).
+   - **The first matching rule wins** — put narrower folders before broader ones (`components/universe/genie/**` before `components/universe/**`).
+   - `exclude` already holds init's defaults (tests, stories, mocks, build output) — keep them and append non-product paths (scripts, archives, seeds, deploy config) instead of giving those a feature.
+   - Several rules may share a `name` (to split long include lists); they count as one feature.
+   - Colors: a feature in a group may omit `color` and gets a shade of the group color; giving one overrides it. A feature with neither a group nor a valid `color` is drawn in the grey of **Other**, so give it a color.
+   - Folders are colored by most of their files; only files are matched.
+
+   **Targets** (the build prints the numbers, see step 4)
+   - 5–12 features per repo; no feature above about a third of the files; **Other** under about 10%.
+   - A feature with fewer than about 5 files is fine only if the team treats it as its own product area (it has its own doc, module or route); otherwise merge it into its neighbour.
+   - With six or more features, use 2–5 `groups`, and keep any one group under about half of the files — split a group that grows larger.
+
+   Then delete `"draft": true`. Only pass `--allow-draft` if the user explicitly wants the raw draft.
+
+   If a frontend calls a backend through something other than `process.env.X` (for example `this.baseUrl` in an API client class), add it to `http` in `atlas/atlas.workspace.json` with `files` to scope it.
+
+4. **Build, check, repeat.**
 
    ```bash
-   npx -y github:frankzoey-lab/code-atlas atlas/atlas.workspace.json --out atlas/atlas.html --open
+   npx -y github:frankzoey-lab/code-atlas atlas/atlas.workspace.json --lang en
    ```
 
-   Check the build output: fix any `matches 0 files` warning (usually a rule order problem) and rebuild.
+   This writes `atlas/atlas.html` (next to the workspace file; `--out` changes it). Read the output:
+   - `Features of <repo> (N files): [Group total (%): Feature n, …], …, Other n (%); largest feature <name> <%>` — one line per repo; compare with the targets above.
+   - Lines starting with `Warning:` — fix all of them. The usual ones: `feature "…" matches 0 files` (a rule order or glob problem), `no source files found` (wrong tsconfig or exclude), and `cannot statically resolve the @Controller path` (that controller's routes are skipped; mention it to the user).
+   - A refusal starting `These configs are still init drafts` lists the configs that still have `"draft": true`.
+   - With `--classify`, the counts are from the path rules before Jev runs, so the map can show fewer Other files.
 
-   For a single repo without init: `npx -y github:frankzoey-lab/code-atlas <path> --out atlas.html --open`.
+   Fix the rules and rebuild until the numbers meet the targets and there are no warnings. Then build once more with `--open` to show the user.
+
+   For a single repo without init: `npx -y github:frankzoey-lab/code-atlas <path> --out atlas.html --open` (it has no feature rules unless you pass `--config`).
 
 5. **Report back.** Tell the user where the HTML is, how to use it (Focus tab: pick a file or function in the tree; Full map tab: turn features on), and summarize the `Unmatched:` lines — calls with no matching route and socket events that are only emitted or only listened to are often real bugs or dead code.
 

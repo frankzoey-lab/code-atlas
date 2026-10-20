@@ -32,6 +32,7 @@ Options:
   'cli.scopeEmpty': 'Warning: no files under --scope {scope}. Use a path relative to the repo root.',
   'cli.workspaceExtracted':
     'Extracted {repos}: {files} files, {symbols} symbols, {edges} edges, {ifaces} interfaces ({unmatched} unmatched) ({secs}s)',
+  'cli.features': '  Features of {repo} ({files} files): {list}, Other {other} ({otherPct}); largest feature {largest}',
   'cli.warning': '  Warning: {text}',
   'cli.unmatched': '  Unmatched: {name} — {note}',
   'cli.wrote': '→ {path} ({mb} MB)',
@@ -75,7 +76,7 @@ Options:
   'init.httpLink': '  HTTP: {from} → {to} (base {base}, {hits} calls matched)',
   'init.httpExternal': '  HTTP: {from} calls {base} ({count} calls) — no repo matched, shown as external',
   'init.socketLink': '  Socket.io: {client} ↔ {server}',
-  'init.features': '  {name}: {count} feature rules drafted',
+  'init.features': '  {name} ({files} files) → {name}.atlas.json: {count} draft feature rules ({names})',
   'init.confirm': 'Write the workspace to {dir}? [Y/n] ',
   'init.done':
     'Wrote {files}.\nThe feature rules are only a draft ("draft": true), so the map is not built yet.\nRefine them with the code-atlas skill in Claude Code (ask it to "map these repos"), or edit {dir}/*.atlas.json yourself and delete "draft": true. Then run:\n  npx -y github:frankzoey-lab/code-atlas {workspace} --open',
@@ -120,6 +121,7 @@ const ko: Record<MessageCode, string> = {
   'cli.scopeEmpty': '경고: --scope {scope} 에 해당하는 파일이 없습니다. 저장소 기준 경로인지 확인하세요.',
   'cli.workspaceExtracted':
     '추출: {repos} — 파일 {files}, 심볼 {symbols}, 간선 {edges}, 인터페이스 {ifaces}개 (짝 없음 {unmatched}) ({secs}s)',
+  'cli.features': '  {repo} 기능 (파일 {files}개): {list}, 기타 {other}개 ({otherPct}); 가장 큰 기능 {largest}',
   'cli.warning': '  경고: {text}',
   'cli.unmatched': '  짝 없음: {name} — {note}',
   'cli.wrote': '→ {path} ({mb} MB)',
@@ -163,7 +165,7 @@ const ko: Record<MessageCode, string> = {
   'init.httpLink': '  HTTP: {from} → {to} (base {base}, 호출 {hits}개 매칭)',
   'init.httpExternal': '  HTTP: {from} 이 {base} 를 부릅니다 (호출 {count}개) — 맞는 repo 가 없어 바깥 서비스로 둡니다',
   'init.socketLink': '  Socket.io: {client} ↔ {server}',
-  'init.features': '  {name}: 기능 규칙 {count}개 초안',
+  'init.features': '  {name} (파일 {files}개) → {name}.atlas.json: 기능 규칙 초안 {count}개 ({names})',
   'init.confirm': '{dir} 에 workspace 를 쓸까요? [Y/n] ',
   'init.done':
     '{files} 를 만들었습니다.\n기능 규칙은 아직 초안("draft": true)이라 지도를 만들지 않습니다.\nClaude Code 에서 code-atlas 스킬로 다듬거나("이 repo 들 지도 그려줘"), {dir}/*.atlas.json 을 직접 고친 뒤 "draft": true 를 지우세요. 그다음 실행하세요:\n  npx -y github:frankzoey-lab/code-atlas {workspace} --open',
