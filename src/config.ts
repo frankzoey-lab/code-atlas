@@ -121,9 +121,24 @@ function featureColors(raw: AtlasConfig): { colors: string[]; groups: FeatureGro
   return { colors, groups };
 }
 
+/** 같은 이름 규칙(include 를 나눠 적은 경우)을 한 기능으로: 처음 적은 group · color · description 을 쓴다 */
+function mergeByName(rules: FeatureRule[]): FeatureRule[] {
+  const merged = new Map<string, FeatureRule>();
+  for (const r of rules) {
+    const m = merged.get(r.name);
+    if (!m) { merged.set(r.name, { ...r, include: [...r.include] }); continue; }
+    m.include.push(...r.include);
+    m.group ??= r.group;
+    if (!(m.color && COLOR.test(m.color))) m.color = r.color;
+    m.description ??= r.description;
+  }
+  return [...merged.values()];
+}
+
 export function resolveConfig(raw: AtlasConfig): ResolvedConfig {
   const excluded = picomatch([...DEFAULT_EXCLUDE, ...(raw.exclude ?? [])], { dot: true });
-  const { colors, groups } = featureColors(raw);
+  const features = mergeByName(raw.features ?? []);
+  const { colors, groups } = featureColors({ ...raw, features });
   const rules = (raw.features ?? []).map((f) => ({
     name: f.name,
     match: picomatch(f.include, { dot: true }),
@@ -135,10 +150,10 @@ export function resolveConfig(raw: AtlasConfig): ResolvedConfig {
     groups,
     features: [
       // 색은 뷰어의 style 속성에 들어가므로 #hex 만 받는다
-      ...(raw.features ?? []).map(({ name, group }, i) => ({ name, color: colors[i], ...(group ? { group } : {}) })),
+      ...features.map(({ name, group }, i) => ({ name, color: colors[i], ...(group ? { group } : {}) })),
       OTHER_FEATURE,
     ],
-    featureRules: raw.features ?? [],
+    featureRules: features,
     classify: {
       provider: 'jev',
       model: raw.classify?.model ?? 'jev-latest',
@@ -146,7 +161,7 @@ export function resolveConfig(raw: AtlasConfig): ResolvedConfig {
       includeSource: raw.classify?.includeSource ?? false,
     },
     isExcluded: (p) => excluded(p),
-    // 먼저 적은 규칙이 이긴다
+    // 먼저 적은 규칙이 이긴다 (같은 이름으로 나눠 적은 규칙도 적은 순서대로 본다)
     featureOf: (p) => rules.find((r) => r.match(p))?.name ?? OTHER_FEATURE.name,
   };
 }

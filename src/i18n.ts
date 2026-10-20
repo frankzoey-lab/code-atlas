@@ -79,7 +79,7 @@ Options:
   'init.features': '  {name} ({files} files) → {name}.atlas.json: {count} draft feature rules ({names})',
   'init.confirm': 'Write the workspace to {dir}? [Y/n] ',
   'init.done':
-    'Wrote {files}.\nThe feature rules are only a draft ("draft": true), so the map is not built yet.\nRefine them with the code-atlas skill in Claude Code (ask it to "map these repos"), or edit {dir}/*.atlas.json yourself and delete "draft": true. Then run:\n  npx -y github:frankzoey-lab/code-atlas {workspace} --open',
+    'Wrote {files}.\nThe feature rules are only a draft ("draft": true), so the map is not built yet.\nRefine them with the code-atlas skill in Claude Code (ask it to "map these repos"), or edit {dir}/*.atlas.json yourself and delete "draft": true. Then build, check the "Features of …" lines and warnings, and repeat until they look right:\n  npx -y github:frankzoey-lab/code-atlas {workspace}\nAdd --open to the last build to view the map.',
   'cli.draftBlocked':
     'These configs are still init drafts ("draft": true):\n{files}\nRefine the feature rules with the code-atlas skill in Claude Code, or edit them yourself, then delete "draft": true.\nTo build from the draft anyway, add --allow-draft.',
   'warn.emptyFeature': '{repo}: feature "{feature}" matches 0 files. Check its include globs, or move it above a broader rule (the first matching rule wins).',
@@ -168,7 +168,7 @@ const ko: Record<MessageCode, string> = {
   'init.features': '  {name} (파일 {files}개) → {name}.atlas.json: 기능 규칙 초안 {count}개 ({names})',
   'init.confirm': '{dir} 에 workspace 를 쓸까요? [Y/n] ',
   'init.done':
-    '{files} 를 만들었습니다.\n기능 규칙은 아직 초안("draft": true)이라 지도를 만들지 않습니다.\nClaude Code 에서 code-atlas 스킬로 다듬거나("이 repo 들 지도 그려줘"), {dir}/*.atlas.json 을 직접 고친 뒤 "draft": true 를 지우세요. 그다음 실행하세요:\n  npx -y github:frankzoey-lab/code-atlas {workspace} --open',
+    '{files} 를 만들었습니다.\n기능 규칙은 아직 초안("draft": true)이라 지도를 만들지 않습니다.\nClaude Code 에서 code-atlas 스킬로 다듬거나("이 repo 들 지도 그려줘"), {dir}/*.atlas.json 을 직접 고친 뒤 "draft": true 를 지우세요. 그다음 빌드해서 기능 분포 줄과 경고를 보고, 괜찮아질 때까지 고쳐 다시 빌드하세요:\n  npx -y github:frankzoey-lab/code-atlas {workspace}\n마지막 빌드에 --open 을 붙이면 지도가 열립니다.',
   'cli.draftBlocked':
     '아래 설정은 아직 init 초안입니다("draft": true):\n{files}\nClaude Code 의 code-atlas 스킬로 기능 규칙을 다듬거나 직접 고친 뒤 "draft": true 를 지우세요.\n초안 그대로 그리려면 --allow-draft 를 붙이세요.',
   'warn.emptyFeature': '{repo}: 기능 "{feature}" 에 맞는 파일이 0개입니다. include glob 을 확인하거나, 더 넓은 규칙보다 위로 옮기세요(먼저 맞는 규칙이 이깁니다).',

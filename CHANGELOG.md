@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Feature rules with the same name are merged into one feature (first group / color / description wins; matching order is unchanged).
 - The build prints each repo's feature distribution (`Features of <repo> (N files): [Group n (%): Feature n, …], Other n (%)`) so the rules can be checked without opening the map.
 - SKILL.md: config format, glob syntax (picomatch, `[[]` for brackets), where to find feature boundaries (doc front matter `paths:`), targets for features, groups and Other, and a build → check → repeat loop.
 - `init` marks the drafted configs with `"draft": true`; the build refuses to run until the rules are refined and the line is deleted (`--allow-draft` to override). The build also warns about features that match 0 files.

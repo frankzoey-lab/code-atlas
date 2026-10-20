@@ -174,3 +174,30 @@ describe('기능 그룹', () => {
     expect(g.nodes.some((n) => n.feature === 'fe · API')).toBe(true);
   });
 });
+
+describe('기능 분포 요약', () => {
+  it('같은 이름 규칙은 첫 규칙의 group · color 로 하나로, 그룹은 묶어서, Other 이름 규칙은 기타와 겹치지 않게', async () => {
+    const { resolveConfig } = await import('../src/config.js');
+    const { featureSummary } = await import('../src/summary.js');
+    const config = resolveConfig({
+      groups: [{ name: 'G', color: '#7a4bc2' }],
+      features: [
+        { name: 'A', group: 'G', include: ['a/**'] },
+        { name: 'B', group: 'G', include: ['b/**'] },
+        { name: 'A', include: ['a2/**'] },
+        { name: 'Other', color: '#123456', include: ['o/**'] },
+        { name: 'C', color: '#d9480f', include: ['c/**'] },
+      ],
+    });
+    expect(config.features.filter((f) => f.name === 'A')).toEqual([{ name: 'A', color: '#7a4bc2', group: 'G' }]);
+    expect(config.featureOf('a2/x.ts')).toBe('A');
+    const file = (path: string) => ({ id: `f:${path}`, kind: 'file' as const, name: path, path, feature: config.featureOf(path) });
+    const graph = { meta: {} as never, features: config.features, edges: [], nodes: ['a/1.ts', 'a2/2.ts', 'b/3.ts', 'z/4.ts'].map(file) };
+    const s = featureSummary(graph, config)!;
+    expect(s.params).toEqual({ files: 4, list: '[G 3 (75%): A 2, B 1], C 0', other: 1, otherPct: '25%', largest: 'A 50%' });
+    expect(s.empty).toEqual(['C']);
+    expect(featureSummary(graph, resolveConfig({}))).toBeUndefined();
+    const none = featureSummary({ ...graph, nodes: [file('z/4.ts')] }, config)!;
+    expect(none.params.largest).toBe('-');
+  });
+});
