@@ -631,8 +631,10 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
     if (animate) target.animate({ zoom, pan, duration: 300 }); else target.viewport({ zoom, pan });
   }
 
+  // 휠 · 트랙패드 확대 · 축소 속도 (cytoscape 기본 1 은 너무 빠르다)
+  const WHEEL = 0.25;
   const cy = cytoscape({
-    container: document.getElementById('cy'), style: style(), minZoom: 0.05,
+    container: document.getElementById('cy'), style: style(), minZoom: 0.05, wheelSensitivity: WHEEL,
     textureOnViewport: true, hideEdgesOnViewport: true, motionBlur: false,
     pixelRatio: G.nodes.length > BIG ? 1 : 'auto',
   });
@@ -1123,7 +1125,7 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
   ];
 
   const fcy = cytoscape({
-    container: document.getElementById('focus'), style: fxStyle(), minZoom: 0.1, maxZoom: 2.5,
+    container: document.getElementById('focus'), style: fxStyle(), minZoom: 0.1, maxZoom: 2.5, wheelSensitivity: WHEEL,
     autoungrabify: true, boxSelectionEnabled: false,
   });
   const COL_W = 330, ROW_H = 54;
