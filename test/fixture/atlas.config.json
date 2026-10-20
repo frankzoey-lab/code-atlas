@@ -1,0 +1,8 @@
+{
+  "exclude": ["**/*.spec.ts"],
+  "features": [
+    { "name": "UI", "color": "#7a4bc2", "include": ["ui/**"] },
+    { "name": "서비스", "color": "#b4531a", "include": ["services/**"] },
+    { "name": "UI-math", "color": "#000000", "include": ["ui/use*.ts"] }
+  ]
+}

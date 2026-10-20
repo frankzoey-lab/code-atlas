@@ -1,0 +1,8 @@
+{
+  "repos": [
+    { "name": "web", "path": "web" },
+    { "name": "api", "path": "api" }
+  ],
+  "http": [{ "from": "web", "base": ["NEXT_PUBLIC_API_URL"], "to": "api" }],
+  "socket": [{ "client": "web", "server": "api" }]
+}

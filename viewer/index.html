@@ -1,0 +1,1433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Code Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* layout: 왼쪽 조작 패널 + 가운데 그래프 캔버스 + 오른쪽 상세 패널 (좁으면 위아래로 쌓음) */
+:root {
+  --bg: #f4f6f9;
+  --panel: #ffffff;
+  --fg: #1b2230;
+  --muted: #5e6879;
+  --line: #dbe0e8;
+  --accent: #d9480f;
+  --edge: #8a94a6;
+  --canvas: #fbfcfd;
+  --iface: #e8590c;
+  --danger: #d6336c;
+  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10141b; --panel: #171d26; --fg: #e2e7ef; --muted: #96a1b3; --line: #29313d;
+    --accent: #ff8a4c; --edge: #6d7789; --canvas: #131820; --iface: #ff922b; --danger: #f06595; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10141b; --panel: #171d26; --fg: #e2e7ef; --muted: #96a1b3; --line: #29313d;
+  --accent: #ff8a4c; --edge: #6d7789; --canvas: #131820; --iface: #ff922b; --danger: #f06595; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 13.5px; }
+.app { height: 100%; display: grid; grid-template-columns: 260px minmax(0, 1fr) 300px; grid-template-rows: auto minmax(0, 1fr); }
+header { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { font-size: 16px; margin: 0; }
+header .meta { color: var(--muted); font-family: var(--f-mono); font-size: 12px; }
+header #editor { margin-left: auto; padding: 4px 8px; font-size: 12.5px; }
+header #lang, header .theme { padding: 4px 10px; font-size: 12.5px; }
+.detail .open-editor { display: inline-block; margin-top: 8px; text-decoration: none; font-size: 12.5px; }
+aside { background: var(--panel); overflow-y: auto; padding: 14px 16px; display: grid; gap: 18px; align-content: start; min-width: 0; }
+aside.left { border-right: 1px solid var(--line); }
+aside.right { border-left: 1px solid var(--line); }
+[hidden] { display: none !important; }
+.stage { position: relative; min-width: 0; min-height: 0; background: var(--canvas); }
+#cy, #focus { position: absolute; inset: 0; }
+.panel { display: grid; gap: 18px; align-content: start; }
+.tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.tabs button { border: 0; background: transparent; color: var(--fg); padding: 5px 14px; font: inherit; cursor: pointer; }
+.tabs button + button { border-left: 1px solid var(--line); }
+.tabs button[aria-pressed="true"] { background: var(--fg); color: var(--panel); }
+.tree { font-size: 13px; display: grid; gap: 1px; }
+.tree .row { display: grid; grid-template-columns: 14px 9px minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 3px 6px; border-radius: 5px; cursor: pointer; }
+.tree .row:hover { background: var(--bg); }
+.tree .row.on { background: var(--bg); outline: 1px solid var(--accent); }
+.tree .caret { color: var(--muted); font-size: 10px; text-align: center; }
+.tree .dot { width: 8px; height: 8px; border-radius: 50%; }
+.tree .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree .sym .name { font-family: var(--f-mono); font-size: 12px; }
+.tree .cnt { color: var(--muted); font-family: var(--f-mono); font-size: 11px; }
+.tree .kids { padding-left: 14px; display: grid; gap: 1px; }
+.results { display: grid; gap: 1px; }
+.results button { text-align: left; border: 0; background: transparent; color: var(--fg); font: inherit; padding: 5px 6px; border-radius: 5px; cursor: pointer; display: grid; grid-template-columns: 9px minmax(0, 1fr); gap: 8px; align-items: center; }
+.results button:hover { background: var(--bg); }
+.results small { display: block; color: var(--muted); font-family: var(--f-mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.focus-bar { position: absolute; top: 10px; left: 12px; z-index: 2; display: flex; gap: 8px; align-items: center; }
+.focus-bar .btn { background: var(--panel); padding: 4px 10px; font-size: 12.5px; }
+.tip { position: fixed; z-index: 10; max-width: 420px; padding: 8px 10px; border-radius: 7px; background: var(--panel); color: var(--fg); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0,0,0,.18); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; pointer-events: none; }
+.tip b { display: block; font-family: var(--f-mono); font-size: 12px; margin-bottom: 4px; }
+.tip small { display: block; color: var(--muted); font-family: var(--f-mono); font-size: 11px; margin-top: 4px; }
+.detail .doc { white-space: pre-wrap; font-size: 12.5px; line-height: 1.5; margin: 8px 0 0; padding: 8px 10px; border-left: 3px solid var(--line); color: var(--fg); }
+.col-head { position: absolute; top: 44px; z-index: 1; color: var(--muted); font-size: 11.5px; letter-spacing: .06em; pointer-events: none; }
+.label { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.seg { display: grid; grid-template-columns: repeat(2, 1fr); border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--fg); padding: 6px 0; font: inherit; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--panel); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--fg); font: inherit; }
+.legend { display: grid; gap: 4px; }
+.legend label { display: grid; grid-template-columns: auto 12px 1fr auto; align-items: center; gap: 8px; cursor: pointer; padding: 3px 0; }
+.legend .sw { width: 12px; height: 12px; border-radius: 3px; }
+.legend .n { color: var(--muted); font-family: var(--f-mono); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.opts { display: grid; gap: 6px; }
+.opts label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.keys { display: grid; gap: 4px; color: var(--muted); font-size: 12.5px; }
+.keys span { display: inline-flex; align-items: center; gap: 8px; }
+.keys i { display: inline-block; width: 26px; border-top: 2px solid var(--edge); }
+.keys i.render { border-top-width: 4px; }
+.keys i.import { border-top-style: dashed; }
+.btn { border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 7px; padding: 6px 10px; font: inherit; cursor: pointer; }
+.detail h2 { font-size: 15px; margin: 0 0 4px; overflow-wrap: anywhere; }
+.detail .kind { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.detail .path { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); overflow-wrap: anywhere; margin: 6px 0 0; }
+.detail ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.detail li button { width: 100%; text-align: left; border: 0; background: transparent; color: var(--fg); font: inherit; padding: 4px 6px; border-radius: 5px; cursor: pointer; display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; }
+.detail li button:hover { background: var(--bg); }
+.detail li .dot { width: 8px; height: 8px; border-radius: 50%; }
+.detail li .c { color: var(--muted); font-family: var(--f-mono); font-size: 11px; }
+.empty { color: var(--muted); }
+.warn { color: var(--accent); font-size: 12.5px; }
+.warnings { display: grid; gap: 2px; max-height: 220px; overflow-y: auto; }
+.warnings button { text-align: left; border: 0; background: transparent; color: var(--fg); font: inherit; padding: 4px 6px; border-radius: 5px; cursor: pointer; display: grid; gap: 1px; }
+.warnings button:hover { background: var(--bg); }
+.warnings small { color: var(--danger); font-size: 11.5px; }
+.detail .note { color: var(--danger); margin: 6px 0 0; font-size: 12.5px; }
+.keys i.iface { border-top: 3px solid var(--iface); }
+.keys i.sock { border-top: 2px dotted var(--iface); }
+.canvas-note { position: absolute; inset: 0; margin: auto; height: fit-content; max-width: 28ch; text-align: center; color: var(--muted); z-index: 1; pointer-events: none; }
+.legend-actions { display: flex; gap: 6px; margin-top: 6px; }
+.legend-actions .btn { padding: 3px 8px; font-size: 12px; }
+@media (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 60vh auto; }
+  aside.left, aside.right { border: 0; border-bottom: 1px solid var(--line); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1 id="title">Code Atlas</h1>
+    <div class="tabs" role="group" data-i18n-aria="view">
+      <button id="tab-focus" aria-pressed="true" data-i18n="tab.focus">Focus</button>
+      <button id="tab-map" aria-pressed="false" data-i18n="tab.map">Full map</button>
+    </div>
+    <span class="meta" id="meta"></span>
+    <select id="editor" class="btn" data-i18n-aria="editor.aria"></select>
+    <button class="btn" id="lang" type="button">한국어</button>
+    <button class="btn theme" id="theme" type="button">Theme: system</button>
+  </header>
+
+  <aside class="left">
+   <div class="panel" id="panel-focus">
+    <div>
+      <div class="label" data-i18n="search">Search</div>
+      <input type="search" id="fx-search" data-i18n-ph="fx.searchPh" autocomplete="off">
+    </div>
+    <div>
+      <div class="label" data-i18n="fx.unit">Unit</div>
+      <div class="seg" role="group" data-i18n-aria="fx.unit">
+        <button id="fx-file" aria-pressed="true" data-i18n="unit.file">File</button>
+        <button id="fx-fn" aria-pressed="false" data-i18n="unit.fn">Function</button>
+      </div>
+    </div>
+    <div>
+      <div class="label" data-i18n="fx.depth">Depth</div>
+      <div class="seg" role="group" data-i18n-aria="fx.depth">
+        <button id="fx-d1" aria-pressed="true" data-i18n="fx.d1">1 hop</button>
+        <button id="fx-d2" aria-pressed="false" data-i18n="fx.d2">2 hops</button>
+      </div>
+      <div class="opts" style="margin-top:8px">
+        <label><input type="checkbox" id="fx-imports" autocomplete="off"> <span data-i18n="fx.imports">Also show import-only relations</span></label>
+      </div>
+    </div>
+    <div>
+      <div class="label" data-i18n="fx.features">Features (unchecked ones are hidden)</div>
+      <div class="legend" id="fx-legend"></div>
+      <div class="legend-actions"><button class="btn" id="fx-all" data-i18n="all">All on</button><button class="btn" id="fx-none" data-i18n="none">All off</button></div>
+    </div>
+    <div>
+      <div class="label" data-i18n="fx.files">Files</div>
+      <div class="results" id="fx-results" hidden></div>
+      <div class="tree" id="fx-tree"></div>
+    </div>
+   </div>
+   <div class="panel" id="panel-map" hidden>
+    <div>
+      <div class="label" data-i18n="map.level">Level</div>
+      <div class="seg" role="group" data-i18n-aria="map.level">
+        <button id="lv-file" aria-pressed="true" data-i18n="unit.file">File</button>
+        <button id="lv-fn" aria-pressed="false" data-i18n="unit.fn">Function</button>
+      </div>
+      <p class="empty" style="margin:8px 0 0;font-size:12.5px" data-i18n="map.dblclick">Double-click a node to expand or collapse it.</p>
+      <p class="warn" id="warn" hidden></p>
+    </div>
+    <div>
+      <div class="label" data-i18n="search">Search</div>
+      <input type="search" id="search" list="names" data-i18n-ph="map.searchPh" autocomplete="off">
+      <datalist id="names"></datalist>
+    </div>
+    <div>
+      <div class="label" data-i18n="map.features">Features</div>
+      <div class="legend" id="legend"></div>
+      <div class="legend-actions"><button class="btn" id="ft-all" data-i18n="all">All on</button><button class="btn" id="ft-none" data-i18n="none">All off</button></div>
+    </div>
+    <div>
+      <div class="label" data-i18n="map.display">Display</div>
+      <div class="opts">
+        <label><input type="checkbox" id="opt-cross"> <span data-i18n="map.cross">Highlight edges across features</span></label>
+        <label><input type="checkbox" id="opt-import" checked> <span data-i18n="map.imports">Show import-only edges</span></label>
+        <label><input type="checkbox" id="opt-hop2"> <span data-i18n="map.hop2">Highlight 2 hops on select</span></label>
+        <label id="opt-iface-row" hidden><input type="checkbox" id="opt-iface"> <span data-i18n="map.ifaceOnly">Only what touches interfaces</span></label>
+      </div>
+    </div>
+    <div id="warn-box" hidden>
+      <div class="label" id="warn-title">Unmatched interfaces</div>
+      <div class="warnings" id="warnings"></div>
+    </div>
+    <div>
+      <div class="label" data-i18n="map.edges">Edges</div>
+      <div class="keys">
+        <span><i></i><span data-i18n="edge.call">Call</span></span>
+        <span><i class="render"></i><span data-i18n="edge.render">JSX render</span></span>
+        <span><i class="import"></i><span data-i18n="edge.import">Import only</span></span>
+        <span><i class="iface"></i><span data-i18n="edge.http">HTTP request · handler</span></span>
+        <span><i class="sock"></i><span data-i18n="edge.socket">Socket emit · listen</span></span>
+      </div>
+    </div>
+    <button class="btn" id="relayout" data-i18n="map.relayout">Re-layout</button>
+   </div>
+  </aside>
+
+  <div class="stage">
+    <div id="focus" data-i18n-aria="fx.aria"></div>
+    <div class="focus-bar" id="focus-bar"><button class="btn" id="fx-back" disabled data-i18n="fx.back">← Back</button></div>
+    <div id="cy" data-i18n-aria="map.aria" hidden></div>
+  </div>
+
+  <aside class="right detail" id="detail">
+    <p class="empty"></p>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/layout-base@2.0.1/layout-base.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cose-base@2.2.0/cose-base.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape-fcose@2.2.0/cytoscape-fcose.js"></script>
+<script id="atlas-data" type="application/json">/*__ATLAS_DATA__*/</script>
+<script>
+(() => {
+  const G = JSON.parse(document.getElementById('atlas-data').textContent);
+  const KIND = new Proxy({}, { get: (_, k) => T(`kind.${String(k)}`) });
+  const BIG = 2500;
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  // graph.json 은 외부에서 받을 수도 있으므로 style 에 들어가는 색은 #hex 만 쓴다
+  const safeColor = (c) => (/^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '#9aa3b2');
+
+
+  // ---------- 언어 (영어 기본, 한국어) ----------
+  const I18N = {
+    en: {
+      view: 'View', 'tab.focus': 'Focus', 'tab.map': 'Full map', search: 'Search',
+      'fx.searchPh': 'File, function or endpoint name', 'fx.unit': 'Unit', 'unit.file': 'File', 'unit.fn': 'Function',
+      'fx.depth': 'Depth', 'fx.d1': '1 hop', 'fx.d2': '2 hops', 'fx.imports': 'Also show import-only relations',
+      'fx.features': 'Features (unchecked ones are hidden)', 'fx.files': 'Files', 'fx.back': '← Back', 'fx.aria': 'Call relations of the selected item',
+      'fx.pick': 'Pick a file or function from the tree on the left or search for one.',
+      'fx.callers': 'Callers', 'fx.callers2': 'Callers of callers', 'fx.callees': 'Callees', 'fx.callees2': 'Callees of callees',
+      'fx.more': '+{n} more',
+      'map.level': 'Level', 'map.dblclick': 'Double-click a node to expand or collapse it.', 'map.searchPh': 'File or function name (2+ letters)',
+      'map.features': 'Features', 'map.display': 'Display', 'map.cross': 'Highlight edges across features', 'map.imports': 'Show import-only edges',
+      'map.hop2': 'Highlight 2 hops on select', 'map.ifaceOnly': 'Only what touches interfaces', 'map.edges': 'Edges', 'map.relayout': 'Re-layout',
+      'map.aria': 'Code relation graph', 'map.empty': 'Turn on features on the left, or search for a file or function.',
+      'map.big': 'Drawing {n} nodes. If it is slow, turn off features or go back to the file level.',
+      'map.clickHint': 'Click a node to see what it calls and what calls it.',
+      'edge.call': 'Call', 'edge.render': 'JSX render', 'edge.import': 'Import only', 'edge.http': 'HTTP request · handler', 'edge.socket': 'Socket emit · listen',
+      all: 'All on', none: 'All off', unmatchedTitle: 'Unmatched interfaces ({n})', none2: 'None',
+      calls: 'Calls', calledBy: 'Called by', handledBy: 'Handled by', calledFrom: 'Called from', listeners: 'Listeners', emitters: 'Emitters',
+      outOfScope: 'Out of scope', jev: 'Jev · confidence {c}', jevTitle: 'Feature picked by TypeSafe Jev, not by a path rule',
+      callSites: 'Call sites', moreSites: '{n} more', expand: 'Expand', collapse: 'Collapse',
+      meta: '{files} files · {symbols} symbols · {edges} edges · {date}',
+      'theme.system': 'Theme: system', 'theme.light': 'Theme: light', 'theme.dark': 'Theme: dark', langButton: '한국어',
+      openEditor: 'Open in {editor}', 'editor.aria': 'Editor for "open" links', 'editor.none': 'Editor: off',
+      'feature.Other': 'Other', 'feature.External packages': 'External packages', 'feature.Interfaces': 'Interfaces',
+      'kind.dir': 'Folder', 'kind.file': 'File', 'kind.function': 'Function', 'kind.component': 'Component', 'kind.hook': 'Hook', 'kind.class': 'Class',
+      'kind.method': 'Method', 'kind.external': 'External package', 'kind.repo': 'Repository', 'kind.interface': 'Interfaces', 'kind.endpoint': 'HTTP endpoint', 'kind.event': 'Socket event',
+      'note.noRoute': 'No matching route in {repo}', 'note.unresolvedPath': 'The path cannot be resolved statically (the whole path is a variable)',
+      'note.ambiguous': 'Several routes match: {routes}', 'note.noListener': 'Nothing in {repo} listens to it', 'note.noEmitter': 'Nothing in {repo} emits it',
+    },
+    ko: {
+      view: '보기', 'tab.focus': '포커스', 'tab.map': '전체 지도', search: '찾기',
+      'fx.searchPh': '파일 · 함수 · 엔드포인트 이름', 'fx.unit': '단위', 'unit.file': '파일', 'unit.fn': '함수',
+      'fx.depth': '깊이', 'fx.d1': '1단계', 'fx.d2': '2단계', 'fx.imports': 'import만 한 관계도 보기',
+      'fx.features': '기능 (끄면 트리 · 이웃에서 숨김)', 'fx.files': '파일', 'fx.back': '← 뒤로', 'fx.aria': '선택한 것의 호출 관계',
+      'fx.pick': '왼쪽 트리나 찾기에서 파일 · 함수를 고르세요.',
+      'fx.callers': '부르는 쪽', 'fx.callers2': '부르는 쪽의 부르는 쪽', 'fx.callees': '불리는 쪽', 'fx.callees2': '불리는 쪽의 불리는 쪽',
+      'fx.more': '+{n}개 더 보기',
+      'map.level': '보기 단계', 'map.dblclick': '노드를 더블클릭하면 그것만 펼치거나 접습니다.', 'map.searchPh': '파일 · 함수 이름 (2글자 이상)',
+      'map.features': '기능', 'map.display': '표시', 'map.cross': '기능 경계를 넘는 간선 강조', 'map.imports': 'import만 한 간선 보이기',
+      'map.hop2': '선택 시 2단계 이웃까지', 'map.ifaceOnly': '인터페이스와 닿는 것만 보기', 'map.edges': '간선', 'map.relayout': '다시 배치',
+      'map.aria': '코드 관계 그래프', 'map.empty': '왼쪽에서 볼 기능을 켜거나, 파일 · 함수 이름을 검색하세요.',
+      'map.big': '노드 {n}개를 그립니다. 느리면 기능을 끄거나 파일 단계로 돌아가세요.',
+      'map.clickHint': '노드를 클릭하면 호출하는 쪽과 호출받는 쪽이 여기에 나옵니다.',
+      'edge.call': '호출', 'edge.render': 'JSX 렌더', 'edge.import': 'import만 함', 'edge.http': 'HTTP 요청 · 처리', 'edge.socket': '소켓 보내기 · 받기',
+      all: '모두 켜기', none: '모두 끄기', unmatchedTitle: '짝 없는 인터페이스 ({n})', none2: '없음',
+      calls: '부르는 것', calledBy: '불리는 곳', handledBy: '처리하는 곳', calledFrom: '호출하는 곳', listeners: '받는 곳', emitters: '보내는 곳',
+      outOfScope: '범위 밖', jev: 'Jev 분류 · 신뢰도 {c}', jevTitle: '경로 규칙이 아니라 TypeSafe Jev 가 고른 기능',
+      callSites: '호출 위치', moreSites: '외 {n}곳', expand: '펼치기', collapse: '접기',
+      meta: '파일 {files} · 심볼 {symbols} · 간선 {edges} · {date}',
+      'theme.system': '테마: 시스템', 'theme.light': '테마: 라이트', 'theme.dark': '테마: 다크', langButton: 'English',
+      openEditor: '{editor} 에서 열기', 'editor.aria': '"열기" 링크에 쓸 에디터', 'editor.none': '에디터: 끄기',
+      'feature.Other': '기타', 'feature.External packages': '외부 패키지', 'feature.Interfaces': '인터페이스',
+      'kind.dir': '폴더', 'kind.file': '파일', 'kind.function': '함수', 'kind.component': '컴포넌트', 'kind.hook': '훅', 'kind.class': '클래스',
+      'kind.method': '메서드', 'kind.external': '외부 패키지', 'kind.repo': '저장소', 'kind.interface': '인터페이스', 'kind.endpoint': 'HTTP 엔드포인트', 'kind.event': '소켓 이벤트',
+      'note.noRoute': '{repo} 에 맞는 라우트가 없습니다', 'note.unresolvedPath': '경로를 정적으로 풀 수 없습니다 (경로 전체가 변수)',
+      'note.ambiguous': '맞는 라우트가 여러 개입니다: {routes}', 'note.noListener': '{repo} 에서 받는 곳이 없습니다', 'note.noEmitter': '{repo} 에서 보내는 곳이 없습니다',
+    },
+  };
+  // #ko · #en 해시 > 저장한 값 > 브라우저 언어
+  const storedLang = (() => { try { return localStorage.getItem('atlas-lang'); } catch { return null; } })();
+  const hashLang = /^#(en|ko)$/.exec(location.hash)?.[1];
+  const LANG = hashLang || storedLang || ((navigator.language || 'en').toLowerCase().startsWith('ko') ? 'ko' : 'en');
+  document.documentElement.lang = LANG;
+  const T = (key, params = {}) => String(I18N[LANG][key] ?? I18N.en[key] ?? key).replace(/\{(\w+)\}/g, (_, k) => (k in params ? params[k] : `{${k}}`));
+  /** 'Other' · 'tube · Other' 처럼 도구가 만든 기능 이름만 번역한다 (설정에 적은 이름은 그대로) */
+  const featureLabel = (name) => {
+    const m = /^(.* · )?(Other|External packages|Interfaces)$/.exec(name);
+    return m ? `${m[1] ?? ''}${T(`feature.${m[2]}`)}` : name;
+  };
+  /** 인터페이스 묶음의 맨 위 노드 이름도 언어에 맞게 */
+  const nodeName = (n) => (n.id === 'i:root' ? T('kind.interface') : n.name);
+  const noteText = (n) => (n.notes || []).map((m) => T(m.code, m.params || {})).join(' · ');
+  for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = T(el.dataset.i18n);
+  for (const el of document.querySelectorAll('[data-i18n-ph]')) el.placeholder = T(el.dataset.i18nPh);
+  for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', T(el.dataset.i18nAria));
+  document.getElementById('lang').textContent = T('langButton');
+  document.getElementById('lang').addEventListener('click', () => {
+    const next = LANG === 'ko' ? 'en' : 'ko';
+    try { localStorage.setItem('atlas-lang', next); } catch { /* 저장소를 못 쓰면 해시로만 */ }
+    location.hash = next;
+    location.reload();
+  });
+  document.querySelector('#detail .empty').textContent = T('map.clickHint');
+
+  // ---------- 에디터로 열기 ----------
+  const EDITORS = {
+    vscode: { label: 'VS Code', url: (p, l) => `vscode://file${encodePath(p)}:${l}:1` },
+    cursor: { label: 'Cursor', url: (p, l) => `cursor://file${encodePath(p)}:${l}:1` },
+    webstorm: { label: 'WebStorm', url: (p, l) => `webstorm://open?file=${encodeURIComponent(p)}&line=${l}` },
+    idea: { label: 'IntelliJ IDEA', url: (p, l) => `idea://open?file=${encodeURIComponent(p)}&line=${l}` },
+    zed: { label: 'Zed', url: (p, l) => `zed://file${encodePath(p)}:${l}` },
+  };
+  const encodePath = (p) => (p.startsWith('/') ? '' : '/') + p.split('/').map(encodeURIComponent).join('/');
+  const roots = G.meta.roots || {};
+  const editorSelect = document.getElementById('editor');
+  let editor = (() => { try { return localStorage.getItem('atlas-editor') || 'vscode'; } catch { return 'vscode'; } })();
+  editorSelect.innerHTML = [...Object.entries(EDITORS).map(([k, e]) => `<option value="${k}">${e.label}</option>`), `<option value="">${T('editor.none')}</option>`].join('');
+  editorSelect.value = editor in EDITORS ? editor : '';
+  editorSelect.hidden = !Object.keys(roots).length;
+  editorSelect.addEventListener('change', () => {
+    editor = editorSelect.value;
+    try { localStorage.setItem('atlas-editor', editor); } catch { /* 이번 세션만 */ }
+  });
+  /** 노드의 실제 파일 경로 · 줄로 에디터 링크를 만든다. repo 루트를 모르면(공유용으로 뺀 경우) 없음 */
+  function editorLink(n) {
+    if (!editor || !EDITORS[editor] || !n?.path || !['file', 'function', 'component', 'hook', 'class', 'method'].includes(n.kind)) return '';
+    const repoKey = Object.keys(roots).find((k) => k && n.id.startsWith(`${k}:`)) ?? '';
+    const root = roots[repoKey];
+    if (!root) return '';
+    const abs = `${root.replace(/[\\/]+$/, '')}/${n.path}`.replace(/\\/g, '/');
+    return EDITORS[editor].url(abs, n.line || 1);
+  }
+  const editorButton = (n) => {
+    const href = editorLink(n);
+    return href ? `<a class="btn open-editor" href="${esc(href)}">${esc(T('openEditor', { editor: EDITORS[editor].label }))}</a>` : '';
+  };
+
+  // ---------- 테마 (시스템 / 라이트 / 다크) ----------
+  const THEMES = ['system', 'light', 'dark'];
+  const THEME_LABEL = new Proxy({}, { get: (_, k) => T(`theme.${String(k)}`) });
+  const themeBtn = document.getElementById('theme');
+  const readTheme = () => { try { return localStorage.getItem('atlas-theme') || 'system'; } catch { return 'system'; } };
+  const applyTheme = (t) => {
+    if (t === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = t;
+    themeBtn.textContent = THEME_LABEL[t];
+    try { localStorage.setItem('atlas-theme', t); } catch { /* 저장소를 못 쓰면 이번 세션만 */ }
+  };
+  applyTheme(readTheme());
+  themeBtn.addEventListener('click', () => {
+    const cur = document.documentElement.dataset.theme || 'system';
+    applyTheme(THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length]);
+  });
+
+  const nodes = new Map(G.nodes.map((n) => [n.id, n]));
+  const children = new Map();
+  for (const n of G.nodes) {
+    if (!n.parent || !nodes.has(n.parent)) { n.parent = undefined; continue; }
+    if (!children.has(n.parent)) children.set(n.parent, []);
+    children.get(n.parent).push(n.id);
+  }
+  const color = Object.fromEntries(G.features.map((f) => [f.name, safeColor(f.color)]));
+
+  // page.tsx · index.ts 처럼 이름이 겹치는 파일은 상위 폴더 이름을 붙여 구분한다
+  const nameCount = {};
+  for (const n of G.nodes) if (n.kind === 'file') nameCount[n.name] = (nameCount[n.name] || 0) + 1;
+  const SYMBOL_KINDS = new Set(['function', 'component', 'hook', 'class', 'method']);
+  const fileName = (path) => path.slice(path.lastIndexOf('/') + 1);
+  const labelOf = (n) => {
+    // 함수 단계에서 어느 파일의 함수인지 바로 보이도록 파일 이름을 둘째 줄에 붙인다
+    if (SYMBOL_KINDS.has(n.kind)) return `${n.kind === 'method' ? `${nodes.get(n.parent)?.name ?? ''}.` : ''}${n.name}\n${fileName(n.path)}`;
+    if (n.kind !== 'file' || nameCount[n.name] < 2) return nodeName(n);
+    const parts = n.path.split('/');
+    return parts.length > 1 ? `${parts[parts.length - 2]}/${n.name}` : n.name;
+  };
+
+  // 인터페이스 노드(엔드포인트 · 이벤트)는 자기 기능이 없고, 이어진 함수들의 기능을 따른다.
+  // 켜 둔 기능과 닿는 인터페이스만 보이게 해서, 인터페이스 상자가 화면을 덮지 않게 한다
+  const IFACE_KINDS = new Set(['endpoint', 'event']);
+  const ifaceFeatures = new Map();
+  for (const e of G.edges) {
+    for (const [a, b] of [[e.source, e.target], [e.target, e.source]]) {
+      if (!IFACE_KINDS.has(nodes.get(a)?.kind) || !nodes.has(b)) continue;
+      if (!ifaceFeatures.has(a)) ifaceFeatures.set(a, new Set());
+      ifaceFeatures.get(a).add(nodes.get(b).feature);
+    }
+  }
+
+  // 노드 아래 리프들의 기능 집합 (폴더 · 파일 · 클래스를 기능 필터로 숨길지 판단)
+  const featuresUnder = new Map();
+  const collect = (id) => {
+    if (featuresUnder.has(id)) return featuresUnder.get(id);
+    const n = nodes.get(id);
+    const set = new Set(IFACE_KINDS.has(n.kind) ? ifaceFeatures.get(id) || [] : n.kind === 'interface' ? [] : [n.feature]);
+    for (const c of children.get(id) || []) for (const f of collect(c)) set.add(f);
+    featuresUnder.set(id, set);
+    return set;
+  };
+  G.nodes.forEach((n) => collect(n.id));
+
+  // 조상 체인(루트 → 자신)은 렌더마다 수천 번 쓰이므로 한 번만 만든다
+  const chain = new Map();
+  const ancestors = (id) => {
+    let c = chain.get(id);
+    if (!c) {
+      const n = nodes.get(id);
+      c = n.parent ? [...ancestors(n.parent), id] : [id];
+      chain.set(id, c);
+    }
+    return c;
+  };
+
+  // 인터페이스 간선이 닿는 노드와 그 조상 ("인터페이스와 닿는 것만 보기")
+  const IFACE_EDGES = new Set(['request', 'handles', 'emit', 'listen']);
+  const ifaceKeep = new Set();
+  for (const e of G.edges) {
+    if (!IFACE_EDGES.has(e.kind)) continue;
+    for (const id of [e.source, e.target]) if (nodes.has(id)) for (const a of ancestors(id)) ifaceKeep.add(a);
+  }
+
+  const state = {
+    expanded: new Set(),
+    // 처음에는 모든 기능을 꺼 둔다. 보고 싶은 기능만 켜서 그린다
+    features: new Set(),
+    cross: false,
+    imports: true,
+    hop2: false,
+    ifaceOnly: false,
+    selected: null,
+  };
+  const positions = new Map();
+
+  document.getElementById('title').textContent = `Code Atlas · ${G.meta.repo}${G.meta.scope ? ` / ${G.meta.scope}` : ''}`;
+  document.title = `Code Atlas ${G.meta.repo}`;
+  document.getElementById('meta').textContent =
+    T('meta', { files: G.meta.files, symbols: G.meta.symbols, edges: G.meta.edges, date: new Date(G.meta.generatedAt).toLocaleString(LANG === 'ko' ? 'ko-KR' : 'en-US', { dateStyle: 'short', timeStyle: 'short' }) });
+
+  // ---------- 가시성과 간선 합치기 ----------
+  const enabled = (id) => {
+    if (state.ifaceOnly) return ifaceKeep.has(id);
+    for (const f of featuresUnder.get(id)) if (state.features.has(f)) return true;
+    return false;
+  };
+  /** 접힌 상태에서 이 노드를 대신 보여줄 가장 깊은 보이는 조상 */
+  const rep = (id) => {
+    for (const a of ancestors(id)) if (!state.expanded.has(a) || !children.has(a)) return a;
+    return id;
+  };
+  /** 루트부터 펼친 노드만 따라 내려가며 보이는 노드 집합을 만든다 */
+  function visibleSet() {
+    const out = new Set();
+    const walk = (id) => {
+      if (!enabled(id)) return;
+      out.add(id);
+      if (state.expanded.has(id)) for (const c of children.get(id) || []) walk(c);
+    };
+    for (const n of G.nodes) if (!n.parent) walk(n.id);
+    return out;
+  }
+
+  /** 위치가 있는 가장 가까운 조상의 자리(새 노드를 그 근처에서 출발시킨다) */
+  function startPosition(id) {
+    const own = positions.get(id);
+    if (own) return { ...own };
+    const chainIds = ancestors(id);
+    for (let i = chainIds.length - 2; i >= 0; i--) {
+      const p = positions.get(chainIds[i]);
+      if (p) return { x: p.x + (Math.random() - 0.5) * 40, y: p.y + (Math.random() - 0.5) * 40 };
+    }
+    // 위치가 있는 조상이 없으면 (0,0) 에 겹치지 않게 지금 그려진 영역 오른쪽 바깥에 흩어 둔다
+    if (outside) return { x: outside.x2 + 120 + Math.random() * 240, y: outside.y1 + Math.random() * outside.h };
+    return undefined;
+  }
+  /** 이번 렌더 직전에 그려져 있던 영역 */
+  let outside = null;
+
+  function buildNodes(vis) {
+    const out = [];
+    for (const id of vis) {
+      const n = nodes.get(id);
+      const open = state.expanded.has(n.id) && children.has(n.id);
+      const classes = [n.kind, open ? 'open' : '', n.boundary ? 'boundary' : '', n.unmatched ? 'unmatched' : ''].join(' ');
+      const el = { group: 'nodes', data: { id: n.id, label: labelOf(n), short: n.name, color: color[n.feature] || '#9aa3b2' }, classes };
+      if (n.parent) el.data.parent = n.parent;
+      const p = startPosition(n.id);
+      if (p) el.position = p;
+      out.push(el);
+    }
+    return out;
+  }
+
+  function buildEdges(vis) {
+    const merged = new Map();
+    for (const e of G.edges) {
+      if (e.kind === 'import' && !state.imports) continue;
+      // 꺼진 기능의 호출이 접힌 폴더 · 파일 간선에 섞이지 않게 원래 끝점의 기능을 본다
+      if (state.ifaceOnly) {
+        // 인터페이스 보기에서는 인터페이스 간선만 그린다
+        if (!IFACE_EDGES.has(e.kind) || !ifaceKeep.has(e.source) || !ifaceKeep.has(e.target)) continue;
+      } else if (!enabled(e.source) || !enabled(e.target)) continue;
+      const s = rep(e.source), t = rep(e.target);
+      if (s === t || !vis.has(s) || !vis.has(t)) continue;
+      if (ancestors(t).includes(s) || ancestors(s).includes(t)) continue;
+      const key = `${s}|${t}`;
+      const m = merged.get(key);
+      if (m) { m.count += e.count; if (IFACE_EDGES.has(e.kind) || (!IFACE_EDGES.has(m.kind) && (e.kind === 'render' || (e.kind === 'call' && m.kind === 'import')))) m.kind = e.kind; }
+      else merged.set(key, { s, t, kind: e.kind, count: e.count });
+    }
+    const out = [];
+    for (const m of merged.values()) {
+      const cross = nodes.get(m.s).feature !== nodes.get(m.t).feature;
+      // 서로 부르는 쌍은 곡선으로 그려 두 화살표가 한 선에 겹치지 않게 한다
+      const bi = merged.has(`${m.t}|${m.s}`);
+      out.push({
+        group: 'edges',
+        data: { id: `${m.s}->${m.t}`, source: m.s, target: m.t, count: m.count, w: 1 + Math.log2(m.count), w2: 3 + Math.log2(m.count) },
+        classes: [m.kind, cross ? 'cross' : '', bi ? 'bi' : ''].join(' '),
+      });
+    }
+    return out;
+  }
+
+  // ---------- Cytoscape ----------
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const style = () => [
+    { selector: 'node', style: {
+      'background-color': 'data(color)', label: 'data(label)', color: css('--fg'),
+      'font-family': 'JetBrains Mono, monospace', 'font-size': 10, 'text-valign': 'bottom', 'text-margin-y': 4,
+      'text-outline-color': css('--canvas'), 'text-outline-width': 2, width: 18, height: 18,
+      'text-wrap': 'wrap', 'line-height': 1.15,
+    } },
+    { selector: 'node.dir', style: { shape: 'round-rectangle', width: 34, height: 24, 'font-size': 11, 'font-weight': 600 } },
+    { selector: 'node.file', style: { shape: 'rectangle', width: 22, height: 26 } },
+    { selector: 'node.component', style: { shape: 'hexagon', width: 22, height: 20 } },
+    { selector: 'node.hook', style: { shape: 'diamond' } },
+    { selector: 'node.class', style: { shape: 'round-tag', width: 24, height: 20 } },
+    { selector: 'node.method', style: { width: 12, height: 12, 'font-size': 9 } },
+    { selector: 'node.external', style: { shape: 'barrel' } },
+    { selector: 'node.endpoint', style: { shape: 'tag', width: 26, height: 16 } },
+    { selector: 'node.event', style: { shape: 'vee', width: 20, height: 20 } },
+    { selector: 'node.repo', style: { shape: 'round-rectangle', width: 44, height: 30, 'font-size': 13, 'font-weight': 700 } },
+    { selector: 'node.interface', style: { shape: 'round-rectangle', width: 40, height: 28, 'font-size': 12, 'font-weight': 700 } },
+    { selector: 'node.open', style: {
+      'background-opacity': 0.07, 'border-width': 1.5, 'border-color': 'data(color)', 'text-valign': 'top',
+      'text-margin-y': -4, 'font-size': 11, padding: 14, shape: 'round-rectangle',
+    } },
+    { selector: 'node.unmatched', style: { 'border-width': 3, 'border-color': css('--danger') } },
+    // 축소해서 볼 때: 이름 한 줄만, 화면에서 일정 크기로 보이게 키우고 길면 … 로 자른다
+    { selector: 'node.far', style: {
+      label: 'data(short)', 'font-size': (ele) => farMapFont(ele), 'text-wrap': 'ellipsis', 'text-max-width': (ele) => `${farMapWidth(ele)}px`,
+      'text-outline-width': 3, 'font-weight': 600,
+    } },
+    // 펼친 상자 크기는 안의 이름과 상관없이 노드로만 정한다 (축소해서 이름이 커져도 상자가 부풀지 않게)
+    { selector: 'node.open', style: { 'compound-sizing-wrt-labels': 'exclude' } },
+    { selector: 'node.boundary', style: { opacity: 0.55, 'border-width': 1.5, 'border-style': 'dashed', 'border-color': css('--muted') } },
+    { selector: 'edge', style: {
+      width: 'data(w)', 'line-color': css('--edge'), 'target-arrow-color': css('--edge'), 'target-arrow-shape': 'triangle',
+      'arrow-scale': 0.8, 'curve-style': 'straight',
+    } },
+    { selector: 'edge.bi', style: { 'curve-style': 'bezier', 'control-point-step-size': 24 } },
+    { selector: 'edge.render', style: { width: 'data(w2)' } },
+    { selector: 'edge.import', style: { 'line-style': 'dashed' } },
+    { selector: 'edge.request, edge.handles', style: { width: 'data(w2)', 'line-color': css('--iface'), 'target-arrow-color': css('--iface') } },
+    { selector: 'edge.emit, edge.listen', style: { 'line-style': 'dotted', width: 2, 'line-color': css('--iface'), 'target-arrow-color': css('--iface') } },
+    { selector: 'edge.cross.xon', style: { 'line-color': css('--accent'), 'target-arrow-color': css('--accent'), opacity: 1 } },
+    { selector: '.faded', style: { opacity: 0.1 } },
+    { selector: 'node:selected', style: { 'border-width': 3, 'border-color': css('--accent') } },
+  ];
+
+  // 큰 그래프에서 끊기지 않도록: 이동 · 확대 중에는 텍스처로 그리고 간선을 숨긴다
+  // ---------- 축소 시 글자 크기 (전체 지도 · 포커스 공용 계산) ----------
+  const FAR_ZOOM = 0.8;
+  /** 화면에서 글자가 px 만큼은 보이도록 그래프 좌표 글자 크기를 정한다 */
+  const readableFont = (zoom, px, max) => Math.min(max, Math.max(px, px / zoom));
+  // 배율에서 한 번만 계산해 두고 스타일 함수는 이 값을 읽기만 한다
+  const mapFonts = { leaf: 11, parent: 13 };
+  const farMapFont = (ele) => (ele.isParent() ? mapFonts.parent : mapFonts.leaf);
+  /** 잘리기 전 최대 너비: 상자 이름은 넓게, 점 노드는 이웃과 덜 겹치게 짧게 */
+  const farMapWidth = (ele) => (ele.isParent() ? 16 : 8) * farMapFont(ele);
+  /** 이름을 빼고 노드만으로 화면에 맞춘다 (축소해서 커진 이름 때문에 지나치게 줄어들지 않게) */
+  function fitWithoutLabels(target, eles, padding, animate = false) {
+    const bb = eles.boundingBox({ includeLabels: false });
+    if (!bb.w && !bb.h) return;
+    const w = target.width(), h = target.height();
+    const zoom = Math.max(target.minZoom(), Math.min(target.maxZoom(), Math.min((w - 2 * padding) / (bb.w || 1), (h - 2 * padding) / (bb.h || 1))));
+    const pan = { x: w / 2 - zoom * (bb.x1 + bb.w / 2), y: h / 2 - zoom * (bb.y1 + bb.h / 2) };
+    if (animate) target.animate({ zoom, pan, duration: 300 }); else target.viewport({ zoom, pan });
+  }
+
+  const cy = cytoscape({
+    container: document.getElementById('cy'), style: style(), minZoom: 0.05,
+    textureOnViewport: true, hideEdgesOnViewport: true, motionBlur: false,
+    pixelRatio: G.nodes.length > BIG ? 1 : 'auto',
+  });
+  const emptyNote = document.createElement('p');
+  emptyNote.className = 'canvas-note';
+  emptyNote.textContent = T('map.empty');
+  document.getElementById('cy').appendChild(emptyNote);
+
+  function applyCross() { cy.edges('.cross').toggleClass('xon', state.cross); }
+
+  // 배율이 바뀌면 '멀리 보기' 를 켜고 끄고 글자 크기를 맞춘다.
+  // 글자 크기는 정수 단위로만 바꾸고, 노드가 많으면 확대 · 축소가 멈춘 뒤 한 번만 계산한다
+  let mapFar = false, mapFontKey = '', mapRaf = 0, mapTimeout = 0;
+  function cancelMapFar() {
+    if (mapRaf) cancelAnimationFrame(mapRaf);
+    if (mapTimeout) clearTimeout(mapTimeout);
+    mapRaf = mapTimeout = 0;
+  }
+  function applyMapFar() {
+    cancelMapFar();
+    const z = cy.zoom();
+    // 글자 크기를 먼저 정하고 클래스를 바꾼다. 클래스를 바꾸면 스타일이 다시 계산되므로 따로 갱신하지 않는다
+    mapFonts.leaf = Math.round(readableFont(z, 11, 40));
+    mapFonts.parent = Math.round(readableFont(z, 13, 60));
+    const key = z < FAR_ZOOM ? `${mapFonts.leaf}/${mapFonts.parent}` : '';
+    if ((z < FAR_ZOOM) !== mapFar) {
+      mapFar = z < FAR_ZOOM;
+      cy.nodes().toggleClass('far', mapFar);
+    } else if (mapFar && key !== mapFontKey) cy.nodes('.far').updateStyle();
+    mapFontKey = key;
+  }
+  /** 작은 그래프는 다음 프레임에, 큰 그래프는 확대 · 축소가 멈추고 0.15초 뒤에 한 번만 */
+  function syncMapFar() {
+    if (cy.nodes().length > BIG) {
+      clearTimeout(mapTimeout);
+      mapTimeout = setTimeout(applyMapFar, 150);
+    } else if (!mapRaf) mapRaf = requestAnimationFrame(applyMapFar);
+  }
+  cy.on('zoom', syncMapFar);
+
+  /** 간선만 바뀌는 경우(import 간선 표시) 노드는 그대로 두고 간선만 바꾼다 */
+  function renderEdges() {
+    const vis = new Set(cy.nodes().map((n) => n.id()));
+    cy.batch(() => {
+      cy.edges().remove();
+      cy.add(buildEdges(vis));
+      applyCross();
+    });
+    refocus();
+  }
+
+  function render({ fit = false } = {}) {
+    cy.nodes().forEach((n) => positions.set(n.id(), { ...n.position() }));
+    const placed = new Set(cy.nodes().map((n) => n.id()));
+    const prevCount = placed.size;
+    const vis = visibleSet();
+    // 이전 노드가 하나라도 남을 때만 그 영역 바깥에 새 노드를 둔다. 통째로 바뀌면 새로 무작위 배치한다
+    const stays = [...placed].some((id) => vis.has(id));
+    outside = stays ? cy.nodes().boundingBox({ includeLabels: false }) : null;
+    if (!stays) positions.clear();
+    const nodeEls = buildNodes(vis);
+    const count = nodeEls.length;
+    const warn = document.getElementById('warn');
+    warn.hidden = count < BIG;
+    warn.textContent = T('map.big', { n: count });
+    emptyNote.hidden = count > 0;
+    cy.batch(() => {
+      cy.elements().remove();
+      cy.add(nodeEls);
+      cy.add(buildEdges(vis));
+      applyCross();
+    });
+    const fresh = !nodeEls.some((e) => e.position);
+    const added = nodeEls.filter((e) => !placed.has(e.data.id));
+    const kept = nodeEls.length - added.length;
+    // 새로 나타난 노드가 있을 때만 배치한다. 이미 있던 노드는 고정하고 새 노드만 자리를 찾는다
+    if (count && (fresh || added.length)) {
+      const fixed = fresh ? [] : cy.nodes().filter((n) => placed.has(n.id()) && !n.isParent())
+        .map((n) => ({ nodeId: n.id(), position: { ...n.position() } }));
+      cy.layout({
+        name: 'fcose',
+        // randomize 를 끄면 draft 는 위치를 바꾸지 않으므로, 처음 그리는 큰 그래프에서만 draft 를 쓴다
+        quality: fresh && count > BIG ? 'draft' : 'default',
+        randomize: fresh, animate: false,
+        nodeDimensionsIncludeLabels: count <= BIG, packComponents: true, idealEdgeLength: 70, nodeRepulsion: 6000,
+        nestingFactor: 0.6, gravity: 0.3, numIter: count > BIG ? 600 : 1500,
+        fixedNodeConstraint: fixed.length ? fixed : undefined,
+      }).run();
+    }
+    // 보이던 노드가 하나도 안 남았으면(다른 기능으로 바꿈) 화면을 다시 맞춘다
+    if (count && (fit || fresh || prevCount === 0 || kept === 0)) fitWithoutLabels(cy, cy.elements(), 30);
+    // 다시 그린 직후 한 프레임이라도 작은 두 줄 이름이 보이지 않게 바로 맞춘다
+    mapFar = false;
+    mapFontKey = '';
+    applyMapFar();
+    refocus();
+  }
+
+  function refocus() {
+    if (state.selected && cy.getElementById(state.selected).nonempty()) focus(state.selected, false);
+    else { state.selected = null; showDetail(null); }
+  }
+
+  // ---------- 선택과 상세 ----------
+  function focus(id, center = true) {
+    const el = cy.getElementById(id);
+    if (el.empty()) return;
+    state.selected = id;
+    let hood = el.closedNeighborhood();
+    if (state.hop2) hood = hood.union(hood.nodes().neighborhood());
+    hood = hood.union(hood.ancestors()).union(el.descendants());
+    cy.batch(() => {
+      cy.elements().unselect();
+      el.select();
+      cy.elements().addClass('faded');
+      hood.removeClass('faded');
+    });
+    if (center) fitWithoutLabels(cy, hood.nodes().filter((n) => !n.isParent() || n.same(el)), 60, true);
+    showDetail(id);
+  }
+
+  function clearFocus() {
+    state.selected = null;
+    cy.batch(() => cy.elements().removeClass('faded').unselect());
+    showDetail(null);
+  }
+
+  function listOf(edges, end) {
+    if (!edges.length) return `<p class="empty">${T('none2')}</p>`;
+    return '<ul>' + edges.sort((a, b) => b.data('count') - a.data('count')).map((e) => {
+      const other = e[end]();
+      return `<li><button data-go="${esc(other.id())}"><span class="dot" style="background:${safeColor(other.data('color'))}"></span><span>${esc(other.data('label'))}</span><span class="c">×${e.data('count')}</span></button></li>`;
+    }).join('') + '</ul>';
+  }
+
+  function showDetail(id) {
+    const box = document.getElementById('detail');
+    if (!id) { box.innerHTML = `<p class="empty">${T('map.clickHint')}</p>`; return; }
+    const n = nodes.get(id);
+    const el = cy.getElementById(id);
+    const where = n.line ? `${n.path}:${n.line}` : n.path;
+    const out = el.connectedEdges().filter((e) => e.source().id() === id).toArray();
+    const inc = el.connectedEdges().filter((e) => e.target().id() === id).toArray();
+    const [outLabel, incLabel] =
+      n.kind === 'endpoint' ? [T('handledBy'), T('calledFrom')] : n.kind === 'event' ? [T('listeners'), T('emitters')] : [T('calls'), T('calledBy')];
+    box.innerHTML = `
+      <div><h2>${esc(n.name)}</h2>
+        <span class="kind">${esc(KIND[n.kind] || n.kind)}</span> <span class="kind" style="border-color:${safeColor(color[n.feature])}">${esc(featureLabel(n.feature))}</span>
+        ${n.boundary ? `<span class="kind">${T('outOfScope')}</span>` : ''}
+        ${n.classifiedBy === 'jev' ? `<span class="kind" title="${esc(T('jevTitle'))}">${T('jev', { c: Number(n.confidence).toFixed(2) })}</span>` : ''}
+        <p class="path">${esc(where)}</p>
+        ${n.notes?.length ? `<p class="note">${esc(noteText(n))}</p>` : ''}
+        ${n.refs?.length ? `<p class="path">${T('callSites')}<br>${n.refs.slice(0, 12).map(esc).join('<br>')}${n.refs.length > 12 ? `<br>${T('moreSites', { n: n.refs.length - 12 })}` : ''}</p>` : ''}
+        ${editorButton(n)}</div>
+      <div><div class="label">${outLabel} (${out.length})</div>${listOf(out, 'target')}</div>
+      <div><div class="label">${incLabel} (${inc.length})</div>${listOf(inc, 'source')}</div>
+      ${children.has(id) ? `<button class="btn" data-toggle="${esc(id)}">${state.expanded.has(id) ? T('collapse') : T('expand')}</button>` : ''}`;
+  }
+
+  document.getElementById('detail').addEventListener('click', (ev) => {
+    const go = ev.target.closest('[data-go]');
+    if (go) focus(go.dataset.go);
+    const t = ev.target.closest('[data-toggle]');
+    if (t) toggle(t.dataset.toggle);
+  });
+
+  function toggle(id) {
+    if (!children.has(id)) return;
+    if (state.expanded.has(id)) {
+      state.expanded.delete(id);
+      for (const d of descendantsOf(id)) state.expanded.delete(d);
+    } else state.expanded.add(id);
+    state.selected = id;
+    syncLevel();
+    render();
+  }
+  const descendantsOf = (id) => (children.get(id) || []).flatMap((c) => [c, ...descendantsOf(c)]);
+
+  cy.on('tap', 'node', (ev) => focus(ev.target.id(), false));
+  cy.on('mouseover', 'node', (ev) => {
+    const rect = document.getElementById('cy').getBoundingClientRect();
+    window.__atlasTip?.(nodes.get(ev.target.id()), rect.left + ev.renderedPosition.x, rect.top + ev.renderedPosition.y);
+  });
+  cy.on('mouseout', 'node', () => window.__atlasTip?.(null));
+  cy.on('pan zoom', () => window.__atlasTip?.(null));
+  cy.on('dbltap', 'node', (ev) => toggle(ev.target.id()));
+  cy.on('tap', (ev) => { if (ev.target === cy) clearFocus(); });
+
+  // ---------- 조작 패널 ----------
+  const levels = { 'lv-file': ['repo', 'interface', 'dir'], 'lv-fn': ['repo', 'interface', 'dir', 'file', 'class'] };
+  const expandKinds = (kinds) => new Set(G.nodes.filter((n) => kinds.includes(n.kind) && children.has(n.id)).map((n) => n.id));
+  const levelSets = Object.fromEntries(Object.entries(levels).map(([k, kinds]) => [k, expandKinds(kinds)]));
+  const sameSet = (a, b) => a.size === b.size && [...a].every((x) => b.has(x));
+  /** 더블클릭 · 검색으로 펼침이 바뀌면 단계 버튼은 실제 상태와 같을 때만 눌린 것으로 보인다 */
+  function syncLevel() {
+    for (const [btnId, set] of Object.entries(levelSets)) {
+      document.getElementById(btnId).setAttribute('aria-pressed', String(sameSet(state.expanded, set)));
+    }
+  }
+  for (const btnId of Object.keys(levels)) {
+    document.getElementById(btnId).addEventListener('click', () => {
+      if (sameSet(state.expanded, levelSets[btnId])) return;
+      state.expanded = new Set(levelSets[btnId]);
+      syncLevel();
+      render({ fit: true });
+    });
+  }
+
+  const legend = document.getElementById('legend');
+  const fileCount = {};
+  const COUNTED = new Set(['file', 'external']);
+  const jevCount = {};
+  for (const n of G.nodes) {
+    if (!COUNTED.has(n.kind)) continue;
+    fileCount[n.feature] = (fileCount[n.feature] || 0) + 1;
+    if (n.classifiedBy === 'jev') jevCount[n.feature] = (jevCount[n.feature] || 0) + 1;
+  }
+  const shown = G.features.filter((f) => fileCount[f.name]);
+  legend.innerHTML = shown.map((f, i) => `
+    <label><input type="checkbox" id="ft-${i}" data-feature="${esc(f.name)}" autocomplete="off">
+      <span class="sw" style="background:${safeColor(f.color)}"></span><span>${esc(featureLabel(f.name))}</span><span class="n">${fileCount[f.name]}${jevCount[f.name] ? ` (+${jevCount[f.name]} Jev)` : ''}</span></label>`).join('');
+  const syncLegend = () => legend.querySelectorAll('input').forEach((i) => { i.checked = state.features.has(i.dataset.feature); });
+  const setAll = (on) => {
+    const next = new Set(on ? shown.map((f) => f.name) : []);
+    if (sameSet(next, state.features)) return;
+    state.features = next;
+    syncLegend();
+    render({ fit: true });
+  };
+  document.getElementById('ft-all').addEventListener('click', () => setAll(true));
+  document.getElementById('ft-none').addEventListener('click', () => setAll(false));
+  legend.addEventListener('change', (ev) => {
+    const f = ev.target.dataset.feature;
+    if (ev.target.checked) state.features.add(f); else state.features.delete(f);
+    render();
+  });
+
+  document.getElementById('opt-cross').addEventListener('change', (ev) => { state.cross = ev.target.checked; applyCross(); });
+  document.getElementById('opt-import').addEventListener('change', (ev) => { state.imports = ev.target.checked; renderEdges(); });
+  document.getElementById('opt-hop2').addEventListener('change', (ev) => { state.hop2 = ev.target.checked; refocus(); });
+  document.getElementById('relayout').addEventListener('click', () => { positions.clear(); cy.elements().remove(); render({ fit: true }); });
+
+  // ---------- 찾기: 입력할 때 맞는 것 상위 30개만 후보로 보여준다 ----------
+  const searchable = G.nodes.filter((n) => n.kind !== 'dir').map((n) => ({
+    n, key: `${n.name} · ${n.path}`, name: n.name.toLowerCase(), path: n.path.toLowerCase(),
+  }));
+  const byKey = new Map(searchable.map((x) => [x.key, x.n]));
+  const searchInput = document.getElementById('search');
+  const datalist = document.getElementById('names');
+  const matches = (q) => {
+    const exact = [], prefix = [], partial = [];
+    for (const x of searchable) {
+      if (x.name === q) exact.push(x);
+      else if (x.name.startsWith(q)) prefix.push(x);
+      else if (x.name.includes(q) || x.path.includes(q)) partial.push(x);
+      if (exact.length + prefix.length >= 30) break;
+    }
+    return [...exact, ...prefix, ...partial].slice(0, 30);
+  };
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.trim().toLowerCase();
+    if (byKey.has(searchInput.value)) return;
+    datalist.innerHTML = q.length < 2 ? '' : matches(q).map((x) => `<option value="${esc(x.key)}">`).join('');
+  });
+  searchInput.addEventListener('change', () => {
+    const q = searchInput.value.trim();
+    if (!q) return;
+    const hit = byKey.get(q) || matches(q.toLowerCase())[0]?.n;
+    if (!hit) return;
+    for (const a of ancestors(hit.id).slice(0, -1)) state.expanded.add(a);
+    if (state.ifaceOnly && !ifaceKeep.has(hit.id)) setIfaceOnly(false, { draw: false });
+    // 인터페이스 묶음(HTTP web → api 등)은 기능이 없으니 인터페이스 보기로 보여 준다
+    if (hit.kind === 'interface') setIfaceOnly(true, { draw: false });
+    // 엔드포인트 · 이벤트는 자기 기능이 없으니 이어진 함수들의 기능을 켠다
+    const featuresToShow = IFACE_KINDS.has(hit.kind) ? [...(ifaceFeatures.get(hit.id) || [])] : [hit.feature];
+    for (const f of featuresToShow) state.features.add(f);
+    syncLegend();
+    syncLevel();
+    state.selected = null;
+    render();
+    focus(hit.id);
+  });
+
+  // ---------- 인터페이스 ----------
+  /** 인터페이스 보기에서는 기능 필터가 쓰이지 않으므로 범례를 흐리게 막아 둔다 */
+  function setIfaceOnly(on, { draw = true } = {}) {
+    state.ifaceOnly = on;
+    ifaceToggle.checked = on;
+    legend.querySelectorAll('input').forEach((i) => { i.disabled = on; });
+    document.getElementById('legend').style.opacity = on ? 0.45 : 1;
+    if (draw) render({ fit: true });
+  }
+  const ifaceToggle = document.getElementById('opt-iface');
+  if (ifaceKeep.size) {
+    document.getElementById('opt-iface-row').hidden = false;
+    ifaceToggle.addEventListener('change', () => setIfaceOnly(ifaceToggle.checked));
+  }
+  const unmatched = G.nodes.filter((n) => n.unmatched);
+  if (unmatched.length) {
+    document.getElementById('warn-box').hidden = false;
+    document.getElementById('warn-title').textContent = T('unmatchedTitle', { n: unmatched.length });
+    document.getElementById('warnings').innerHTML = unmatched.map((n) =>
+      `<button data-warn="${esc(n.id)}"><span>${esc(n.name)}</span><small>${esc(noteText(n))}</small></button>`).join('');
+    document.getElementById('warnings').addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-warn]');
+      if (!b) return;
+      // 짝 없는 인터페이스는 인터페이스 보기에서 펼쳐 보여 준다
+      setIfaceOnly(true, { draw: false });
+      for (const a of ancestors(b.dataset.warn).slice(0, -1)) state.expanded.add(a);
+      syncLevel();
+      state.selected = null;
+      render();
+      focus(b.dataset.warn);
+    });
+  }
+
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => cy.style(style()));
+  new MutationObserver(() => cy.style(style())).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  state.expanded = new Set(levelSets['lv-file']);
+  syncLevel();
+  // 새로고침 · 뒤로 가기에서 브라우저가 이전 체크 상태를 되살리는 경우가 있어 state 기준으로 다시 맞춘다
+  window.addEventListener('pageshow', syncLegend);
+  // ================= 포커스 뷰 =================
+  // 고른 파일 · 함수 하나를 가운데 두고, 부르는 쪽을 왼쪽, 불리는 쪽을 오른쪽에 층으로 놓는다.
+  const FILE_LEVEL_KINDS = new Set(['file', 'endpoint', 'event', 'external', 'repo', 'interface', 'dir']);
+  const FX = {
+    level: 'file',
+    depth: 1,
+    imports: false,
+    features: new Set(G.features.map((f) => f.name)),
+    focus: null,
+    history: [],
+  };
+  const featureOn = (n) => IFACE_KINDS.has(n.kind) || n.kind === 'interface' || FX.features.has(n.feature);
+
+  /** 파일 단위면 심볼을 그 파일로 올린다 */
+  function lift(id) {
+    if (FX.level === 'fn') return id;
+    const n = nodes.get(id);
+    if (!n || FILE_LEVEL_KINDS.has(n.kind)) return id;
+    const chainIds = ancestors(id);
+    for (let i = chainIds.length - 2; i >= 0; i--) if (nodes.get(chainIds[i]).kind === 'file') return chainIds[i];
+    return id;
+  }
+
+  const adjacencyCache = new Map();
+  /** 단위 · import 옵션에 맞게 올린 인접 목록: out / in 각각 id → Map(이웃 → {count, kind}) */
+  function adjacency() {
+    const key = `${FX.level}|${FX.imports}`;
+    if (adjacencyCache.has(key)) return adjacencyCache.get(key);
+    const out = new Map(), inc = new Map();
+    const put = (m, a, b, e) => {
+      if (!m.has(a)) m.set(a, new Map());
+      const cur = m.get(a).get(b);
+      if (cur) { cur.count += e.count; if (IFACE_EDGES.has(e.kind) || cur.kind === 'import') cur.kind = e.kind; }
+      else m.get(a).set(b, { count: e.count, kind: e.kind });
+    };
+    for (const e of G.edges) {
+      if (e.kind === 'import' && !FX.imports) continue;
+      if (!nodes.has(e.source) || !nodes.has(e.target)) continue;
+      const s = lift(e.source), t = lift(e.target);
+      if (s === t) continue;
+      put(out, s, t, e);
+      put(inc, t, s, e);
+    }
+    const adj = { out, inc };
+    adjacencyCache.set(key, adj);
+    return adj;
+  }
+
+  const SYMBOL_KIND_SET = new Set(['function', 'component', 'hook', 'class', 'method']);
+  /**
+   * 가운데에 놓을 것들. 함수 단위에서 파일을 고르면 파일 자신(최상위 코드)과 그 안의 모든 심볼,
+   * 클래스를 고르면 클래스 자신(`new Foo()` 대상)과 메서드들. 관계가 하나도 없는 것은 뺀다.
+   */
+  function centersOf(id) {
+    const n = nodes.get(id);
+    if (FX.level !== 'fn' || (n.kind !== 'file' && n.kind !== 'class')) return [lift(id)];
+    const { out, inc } = adjacency();
+    const all = [id, ...descendantsOf(id)];
+    const linked = all.filter((c) => out.has(c) || inc.has(c));
+    return linked.length ? linked : [id];
+  }
+
+  function fxLabel(n) {
+    if (n.kind === 'file') {
+      const parts = n.path.split('/');
+      return parts.length > 1 ? `${n.name}\n${parts.slice(-3, -1).join('/')}` : n.name;
+    }
+    if (SYMBOL_KIND_SET.has(n.kind)) {
+      const owner = n.kind === 'method' ? `${nodes.get(n.parent)?.name ?? ''}.` : '';
+      return `${owner}${n.name}\n${n.path.slice(n.path.lastIndexOf('/') + 1)}`;
+    }
+    return n.name;
+  }
+  const fxColor = (n) => (IFACE_KINDS.has(n.kind) ? css('--iface') : color[n.feature] || '#9aa3b2');
+
+  const fxStyle = () => [
+    { selector: 'node', style: {
+      shape: 'round-rectangle', width: 'label', height: 'label', padding: '9px', label: 'data(label)',
+      'text-valign': 'center', 'text-halign': 'center', 'text-wrap': 'wrap', 'text-max-width': '260px',
+      'font-family': 'JetBrains Mono, monospace', 'font-size': 12, 'line-height': 1.35, color: css('--fg'),
+      'background-color': css('--panel'), 'border-width': 2, 'border-color': 'data(color)',
+    } },
+    { selector: 'node.center', style: { 'background-color': 'data(color)', color: '#ffffff', 'font-size': 13.5, 'font-weight': 700, 'border-width': 0 } },
+    // 멀리서 볼 때: 이름 한 줄만 크게. 열 간격을 넘지 않게 … 로 자른다 (가운데 노드보다 뒤에 두어 덮어쓴다)
+    { selector: 'node.far', style: {
+      label: 'data(short)', 'font-size': () => farFont(), 'font-weight': 600,
+      'text-wrap': 'ellipsis', 'text-max-width': () => `${COL_W - 70}px`,
+    } },
+    { selector: 'node.endpoint, node.event', style: { 'border-style': 'dashed' } },
+    { selector: 'node.unmatched', style: { 'border-color': css('--danger'), 'border-width': 3 } },
+    { selector: 'node.more', style: { 'border-style': 'dotted', color: css('--muted'), 'border-color': css('--line') } },
+    { selector: 'node:active, node.hover', style: { 'overlay-opacity': 0.08 } },
+    { selector: 'edge', style: {
+      'curve-style': 'taxi', 'taxi-direction': 'horizontal', 'taxi-turn': '50%', width: 'data(w)',
+      'line-color': css('--edge'), 'target-arrow-color': css('--edge'), 'target-arrow-shape': 'triangle', 'arrow-scale': 0.9,
+    } },
+    { selector: 'edge.import', style: { 'line-style': 'dashed' } },
+    { selector: 'edge.request, edge.handles, edge.emit, edge.listen', style: { 'line-color': css('--iface'), 'target-arrow-color': css('--iface') } },
+    { selector: 'edge.emit, edge.listen', style: { 'line-style': 'dotted' } },
+    { selector: 'edge.hover', style: { 'line-color': css('--accent'), 'target-arrow-color': css('--accent'), width: 3, 'z-index': 9 } },
+  ];
+
+  const fcy = cytoscape({
+    container: document.getElementById('focus'), style: fxStyle(), minZoom: 0.1, maxZoom: 2.5,
+    autoungrabify: true, boxSelectionEnabled: false,
+  });
+  const COL_W = 330, ROW_H = 54;
+  /** 열마다 보여 줄 개수. "+N개 더 보기" 를 누른 열만 늘린다 */
+  const caps = new Map();
+  const capOf = (col) => caps.get(col) ?? (col === 0 ? 40 : 30);
+  /** 화면에 맞추되 노드가 몇 개뿐이면 너무 크게 키우지 않는다 */
+  function fitFocus() {
+    fitWithoutLabels(fcy, fcy.elements(), 50);
+    if (fcy.zoom() > 1.1) { fcy.zoom(1.1); fcy.center(); }
+    syncFar();
+  }
+  /** 화면에서 글자가 최소 약 11px 로 보이도록 (박스가 위아래로 겹치지 않게 18까지만) */
+  const farFont = () => readableFont(fcy.zoom(), 12, 18);
+  let far = false, farKey = '';
+  function syncFar() {
+    const next = fcy.zoom() < FAR_ZOOM;
+    if (next !== far) {
+      far = next;
+      fcy.nodes().toggleClass('far', far);
+    }
+    // 글자 크기가 실제로 바뀔 때만 다시 계산한다
+    const key = far ? farFont().toFixed(1) : '';
+    if (far && key !== farKey) fcy.nodes('.far').updateStyle();
+    farKey = key;
+  }
+  fcy.on('zoom', syncFar);
+  const focusBox = document.getElementById('focus');
+  const focusVisible = () => !focusBox.hidden;
+  let columnHeads = [];
+
+  /** 열 제목을 지금 화면(확대 · 이동)에 맞춰 다시 놓는다 */
+  function placeHeads() {
+    const width = focusBox.clientWidth;
+    for (const { el, col } of columnHeads) {
+      const x = fcy.zoom() * col * COL_W + fcy.pan().x;
+      // 열이 화면 밖으로 나가면 제목도 숨긴다 (한쪽 끝에 몰려 겹치지 않게)
+      el.hidden = x < 0 || x > width;
+      el.style.left = `${Math.max(8, Math.min(x - 50, width - el.offsetWidth - 8))}px`;
+    }
+  }
+  fcy.on('pan zoom resize', placeHeads);
+
+  /**
+   * 가운데 열에서 왼쪽(부르는 쪽) · 오른쪽(불리는 쪽)으로 단계마다 번갈아 넓힌다.
+   * 같은 노드가 양쪽에 다 나올 수 있으므로(서로 부르는 경우) 그림 요소 id 는 `열|노드` 다.
+   */
+  function drawFocus() {
+    fcy.elements().remove();
+    columnHeads.forEach(({ el }) => el.remove());
+    columnHeads = [];
+    if (!FX.focus || !focusVisible()) return;
+    const { out, inc } = adjacency();
+    const columns = new Map();
+    const edges = [];
+    const allCenters = centersOf(FX.focus);
+    const centers = allCenters.slice(0, capOf(0));
+    columns.set(0, allCenters.length > centers.length ? [...centers, `more:0:${allCenters.length - centers.length}`] : centers);
+    const frontier = new Map([[1, centers], [-1, centers]]);
+    // 한쪽 방향 안에서는 이미 놓인 것(가운데 · 앞 열)을 다시 놓지 않는다. 양쪽에는 나올 수 있다
+    const sideSeen = new Map([[1, new Set(allCenters)], [-1, new Set(allCenters)]]);
+    for (let d = 1; d <= FX.depth; d++) {
+      for (const [dir, map] of [[1, out], [-1, inc]]) {
+        const col = dir * d;
+        const prev = col - dir;
+        const counts = new Map();
+        for (const from of frontier.get(dir)) {
+          for (const [to, info] of map.get(from) || []) {
+            const n = nodes.get(to);
+            if (!n || !featureOn(n) || sideSeen.get(dir).has(to)) continue;
+            edges.push(dir === 1 ? [`${prev}|${from}`, `${col}|${to}`, info] : [`${col}|${to}`, `${prev}|${from}`, info]);
+            counts.set(to, (counts.get(to) || 0) + info.count);
+          }
+        }
+        const sorted = [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a) || nodes.get(a).name.localeCompare(nodes.get(b).name));
+        const shown = sorted.slice(0, capOf(col));
+        frontier.set(dir, shown);
+        // 잘려서 안 보이는 직접 이웃도 이 방향에서 나온 것으로 쳐서, 다음 열에 2단계 이웃처럼 나오지 않게 한다
+        for (const id of sorted) sideSeen.get(dir).add(id);
+        if (!sorted.length) continue;
+        columns.set(col, sorted.length > shown.length ? [...shown, `more:${col}:${sorted.length - shown.length}`] : shown);
+      }
+    }
+
+    const els = [];
+    const placed = new Set();
+    for (const [col, ids] of columns) {
+      const top = -((ids.length - 1) * ROW_H) / 2;
+      ids.forEach((id, i) => {
+        const position = { x: col * COL_W, y: top + i * ROW_H };
+        if (id.startsWith('more:')) {
+          const label = T('fx.more', { n: id.split(':')[2] });
+          els.push({ group: 'nodes', data: { id, col, label, short: label, color: css('--line') }, classes: 'more', position });
+          return;
+        }
+        const n = nodes.get(id);
+        const key = `${col}|${id}`;
+        placed.add(key);
+        const classes = [n.kind, col === 0 ? 'center' : '', n.unmatched ? 'unmatched' : ''].join(' ');
+        els.push({ group: 'nodes', data: { id: key, real: id, label: fxLabel(n), short: fxLabel(n).split('\n')[0], color: fxColor(n) }, classes, position });
+      });
+    }
+    const seen = new Set();
+    for (const [s, t, info] of edges) {
+      if (!placed.has(s) || !placed.has(t)) continue;
+      const key = `${s}->${t}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      els.push({ group: 'edges', data: { id: key, source: s, target: t, w: Math.min(1.5 + Math.log2(info.count), 5) }, classes: info.kind });
+    }
+    fcy.add(els);
+    far = false;
+    farKey = '';
+    fitFocus();
+    // 열 제목 (#focus 안에 두어 지도 탭에서는 같이 숨는다)
+    for (const [col, ids] of columns) {
+      if (col === 0 || !ids.length) continue;
+      const el = document.createElement('div');
+      el.className = 'col-head';
+      el.textContent = col < 0 ? (col === -1 ? T('fx.callers') : T('fx.callers2')) : (col === 1 ? T('fx.callees') : T('fx.callees2'));
+      focusBox.appendChild(el);
+      columnHeads.push({ el, col });
+    }
+    placeHeads();
+  }
+
+  // ---------- 상세 ----------
+  /** 가운데 노드들(함수 단위에서 파일을 고르면 여러 개)의 이웃을 합친다. 가운데끼리의 호출은 뺀다 */
+  function fxList(map, ids, title) {
+    const merged = new Map();
+    for (const id of ids) {
+      for (const [to, info] of map.get(id) || []) {
+        if (!nodes.has(to) || ids.includes(to)) continue;
+        const cur = merged.get(to);
+        if (cur) cur.count += info.count; else merged.set(to, { ...info });
+      }
+    }
+    const items = [...merged].sort((a, b) => b[1].count - a[1].count);
+    const body = items.length
+      ? '<ul>' + items.map(([to, info]) => {
+        const n = nodes.get(to);
+        return `<li><button data-fx="${esc(to)}"><span class="dot" style="background:${safeColor(fxColor(n))}"></span><span>${esc(fxLabel(n).replace('\n', ' · '))}</span><span class="c">×${info.count}</span></button></li>`;
+      }).join('') + '</ul>'
+      : `<p class="empty">${T('none2')}</p>`;
+    return `<div><div class="label">${title} (${items.length})</div>${body}</div>`;
+  }
+
+  function fxDetail() {
+    const box = document.getElementById('detail');
+    const n = nodes.get(FX.focus);
+    if (!n) { box.innerHTML = `<p class="empty">${T('fx.pick')}</p>`; return; }
+    const { out, inc } = adjacency();
+    const ids = centersOf(FX.focus);
+    const where = n.line ? `${n.path}:${n.line}` : n.path;
+    const [outLabel, incLabel] =
+      n.kind === 'endpoint' ? [T('handledBy'), T('calledFrom')] : n.kind === 'event' ? [T('listeners'), T('emitters')] : [T('calls'), T('calledBy')];
+    box.innerHTML = `
+      <div><h2>${esc(n.name)}</h2>
+        <span class="kind">${esc(KIND[n.kind] || n.kind)}</span>
+        ${n.kind === 'interface' ? '' : `<span class="kind" style="border-color:${safeColor(color[n.feature])}">${esc(featureLabel(n.feature))}</span>`}
+        ${n.classifiedBy === 'jev' ? `<span class="kind" title="${esc(T('jevTitle'))}">${T('jev', { c: Number(n.confidence).toFixed(2) })}</span>` : ''}
+        <p class="path">${esc(where)}</p>
+        ${n.doc ? `<p class="doc">${esc(n.doc)}</p>` : ''}
+        ${n.notes?.length ? `<p class="note">${esc(noteText(n))}</p>` : ''}
+        ${n.refs?.length ? `<p class="path">${T('callSites')}<br>${n.refs.slice(0, 12).map(esc).join('<br>')}</p>` : ''}
+        ${editorButton(n)}</div>
+      ${fxList(out, ids, outLabel)}
+      ${fxList(inc, ids, incLabel)}`;
+  }
+
+  // ---------- 트리 ----------
+  const treeBox = document.getElementById('fx-tree');
+  const openDirs = new Set();
+  const fxVisible = (id) => {
+    const n = nodes.get(id);
+    if (IFACE_KINDS.has(n.kind)) return true;
+    for (const f of featuresUnder.get(id)) if (FX.features.has(f)) return true;
+    return false;
+  };
+  const kidsOf = (id) => (children.get(id) || []).filter((c) => fxVisible(c) && nodes.get(c).kind !== 'method')
+    .sort((a, b) => {
+      const na = nodes.get(a), nb = nodes.get(b);
+      const rank = (n) => (n.kind === 'dir' || n.kind === 'repo' || n.kind === 'interface' ? 0 : 1);
+      return rank(na) - rank(nb) || na.name.localeCompare(nb.name);
+    });
+
+  function treeRow(id) {
+    const n = nodes.get(id);
+    const hasKids = kidsOf(id).length > 0;
+    const open = openDirs.has(id);
+    const sym = SYMBOL_KIND_SET.has(n.kind);
+    const count = n.kind === 'dir' || n.kind === 'repo' || n.kind === 'interface' ? kidsOf(id).length : '';
+    return `<div class="row${sym ? ' sym' : ''}${FX.focus === id ? ' on' : ''}" data-tree="${esc(id)}">
+      <span class="caret">${hasKids ? (open ? '▾' : '▸') : ''}</span>
+      <span class="dot" style="background:${safeColor(fxColor(n))}"></span>
+      <span class="name" title="${esc(n.path || n.name)}">${esc(nodeName(n))}</span>
+      <span class="cnt">${count}</span></div>
+      ${open && hasKids ? `<div class="kids">${kidsOf(id).map(treeRow).join('')}</div>` : ''}`;
+  }
+
+  function drawTree() {
+    const roots = G.nodes.filter((n) => !n.parent && fxVisible(n.id)).map((n) => n.id);
+    treeBox.innerHTML = roots.map(treeRow).join('');
+    treeBox.querySelector('.row.on')?.scrollIntoView({ block: 'nearest' });
+  }
+
+  treeBox.addEventListener('click', (ev) => {
+    const row = ev.target.closest('[data-tree]');
+    if (!row) return;
+    const id = row.dataset.tree;
+    const n = nodes.get(id);
+    const onCaret = ev.target.classList.contains('caret');
+    if (n.kind === 'dir' || n.kind === 'repo' || n.kind === 'interface' || onCaret) {
+      if (openDirs.has(id)) openDirs.delete(id); else openDirs.add(id);
+      if (!onCaret && n.kind !== 'dir' && n.kind !== 'repo' && n.kind !== 'interface') fxFocus(id);
+      else drawTree();
+      return;
+    }
+    fxFocus(id);
+  });
+
+  // ---------- 포커스 이동 ----------
+  function fxFocus(id, { push = true } = {}) {
+    const n = nodes.get(id);
+    if (!n) return;
+    // 함수를 고르면 함수 단위로
+    if (SYMBOL_KIND_SET.has(n.kind) && FX.level === 'file') setLevel('fn', { draw: false });
+    if (push && FX.focus && FX.focus !== id) FX.history.push(FX.focus);
+    FX.focus = id;
+    caps.clear();
+    for (const a of ancestors(id).slice(0, -1)) openDirs.add(a);
+    document.getElementById('fx-back').disabled = !FX.history.length;
+    drawFocus();
+    fxDetail();
+    drawTree();
+  }
+
+  fcy.on('tap', 'node', (ev) => {
+    const id = ev.target.id();
+    if (id.startsWith('more:')) { const col = ev.target.data('col'); caps.set(col, capOf(col) + 50); drawFocus(); return; }
+    fxFocus(ev.target.data('real'));
+  });
+  // 호버: 연결 간선 강조 + 주석이 있으면 설명 띄우기
+  const tip = document.createElement('div');
+  tip.className = 'tip';
+  tip.hidden = true;
+  document.body.appendChild(tip);
+  const showTip = (n, x, y) => {
+    if (!n?.doc) { tip.hidden = true; return; }
+    tip.innerHTML = `<b>${esc(n.name)}</b>${esc(n.doc)}<small>${esc(n.line ? `${n.path}:${n.line}` : n.path)}</small>`;
+    tip.hidden = false;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = `${Math.max(8, Math.min(x + 14, innerWidth - w - 8))}px`;
+    tip.style.top = `${Math.max(8, Math.min(y + 14, innerHeight - h - 8))}px`;
+  };
+  fcy.on('mouseover', 'node', (ev) => {
+    ev.target.connectedEdges().addClass('hover');
+    const rect = document.getElementById('focus').getBoundingClientRect();
+    showTip(nodes.get(ev.target.data('real')), rect.left + ev.renderedPosition.x, rect.top + ev.renderedPosition.y);
+  });
+  fcy.on('mouseout', 'node', (ev) => { ev.target.connectedEdges().removeClass('hover'); tip.hidden = true; });
+  fcy.on('pan zoom', () => { tip.hidden = true; });
+  window.__atlasTip = (n, x, y) => (n ? showTip(n, x, y) : (tip.hidden = true));
+  treeBox.addEventListener('mouseover', (ev) => {
+    const row = ev.target.closest('[data-tree]');
+    showTip(row && nodes.get(row.dataset.tree), ev.clientX, ev.clientY);
+  });
+  treeBox.addEventListener('mouseleave', () => { tip.hidden = true; });
+  document.getElementById('fx-back').addEventListener('click', () => {
+    const prev = FX.history.pop();
+    if (prev) fxFocus(prev, { push: false });
+  });
+  document.getElementById('detail').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-fx]');
+    if (b) fxFocus(b.dataset.fx);
+  });
+
+  // ---------- 조작 ----------
+  function setLevel(level, { draw = true } = {}) {
+    FX.level = level;
+    document.getElementById('fx-file').setAttribute('aria-pressed', String(level === 'file'));
+    document.getElementById('fx-fn').setAttribute('aria-pressed', String(level === 'fn'));
+    if (draw) { drawFocus(); fxDetail(); }
+  }
+  document.getElementById('fx-file').addEventListener('click', () => {
+    // 함수를 보고 있었으면 그 파일로 올린다
+    const n = nodes.get(FX.focus);
+    if (n && SYMBOL_KIND_SET.has(n.kind)) { FX.level = 'file'; const f = lift(FX.focus); setLevel('file', { draw: false }); fxFocus(f); return; }
+    setLevel('file');
+  });
+  document.getElementById('fx-fn').addEventListener('click', () => setLevel('fn'));
+  for (const [btn, d] of [['fx-d1', 1], ['fx-d2', 2]]) {
+    document.getElementById(btn).addEventListener('click', () => {
+      FX.depth = d;
+      document.getElementById('fx-d1').setAttribute('aria-pressed', String(d === 1));
+      document.getElementById('fx-d2').setAttribute('aria-pressed', String(d === 2));
+      drawFocus();
+    });
+  }
+  document.getElementById('fx-imports').addEventListener('change', (ev) => { FX.imports = ev.target.checked; drawFocus(); fxDetail(); });
+
+  const fxLegend = document.getElementById('fx-legend');
+  fxLegend.innerHTML = shown.map((f, i) => `
+    <label><input type="checkbox" id="fxft-${i}" data-feature="${esc(f.name)}" checked autocomplete="off">
+      <span class="sw" style="background:${safeColor(f.color)}"></span><span>${esc(featureLabel(f.name))}</span><span class="n">${fileCount[f.name]}</span></label>`).join('');
+  const fxSetAll = (on) => {
+    FX.features = new Set(on ? shown.map((f) => f.name) : []);
+    fxLegend.querySelectorAll('input').forEach((i) => { i.checked = on; });
+    drawFocus();
+    drawTree();
+  };
+  document.getElementById('fx-all').addEventListener('click', () => fxSetAll(true));
+  document.getElementById('fx-none').addEventListener('click', () => fxSetAll(false));
+  // 새로고침 때 브라우저가 되살린 체크 상태를 화면 상태에 맞춘다
+  window.addEventListener('pageshow', () => {
+    document.getElementById('fx-imports').checked = FX.imports;
+    fxLegend.querySelectorAll('input').forEach((i) => { i.checked = FX.features.has(i.dataset.feature); });
+  });
+  fxLegend.addEventListener('change', (ev) => {
+    const f = ev.target.dataset.feature;
+    if (ev.target.checked) FX.features.add(f); else FX.features.delete(f);
+    drawFocus();
+    drawTree();
+  });
+
+  // 찾기: 맞는 것 30개를 트리 자리에 보여 준다
+  const fxSearch = document.getElementById('fx-search');
+  const fxResults = document.getElementById('fx-results');
+  fxSearch.addEventListener('input', () => {
+    const q = fxSearch.value.trim().toLowerCase();
+    if (q.length < 2) { fxResults.hidden = true; treeBox.hidden = false; return; }
+    const hits = matches(q).filter((x) => x.n.kind !== 'interface');
+    fxResults.innerHTML = hits.length
+      ? hits.map(({ n }) => `<button data-hit="${esc(n.id)}"><span class="dot" style="width:8px;height:8px;border-radius:50%;background:${safeColor(fxColor(n))}"></span><span>${esc(n.name)}<small>${esc(KIND[n.kind] || n.kind)} · ${esc(n.path)}</small></span></button>`).join('')
+      : `<p class="empty">${T('none2')}</p>`;
+    fxResults.hidden = false;
+    treeBox.hidden = true;
+  });
+  fxResults.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-hit]');
+    if (!b) return;
+    fxSearch.value = '';
+    fxResults.hidden = true;
+    treeBox.hidden = false;
+    fxFocus(b.dataset.hit);
+  });
+  fxSearch.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') fxResults.querySelector('[data-hit]')?.click();
+  });
+
+  // ---------- 탭 ----------
+  let mapShown = false;
+  function showTab(tab) {
+    const isMap = tab === 'map';
+    document.getElementById('tab-focus').setAttribute('aria-pressed', String(!isMap));
+    document.getElementById('tab-map').setAttribute('aria-pressed', String(isMap));
+    document.getElementById('panel-focus').hidden = isMap;
+    document.getElementById('panel-map').hidden = !isMap;
+    document.getElementById('focus').hidden = isMap;
+    document.getElementById('focus-bar').hidden = isMap;
+    document.getElementById('cy').hidden = !isMap;
+    if (isMap) {
+      cy.resize();
+      if (!mapShown) { mapShown = true; render({ fit: true }); } else refocus();
+    } else {
+      fcy.resize();
+      drawFocus();
+      fxDetail();
+    }
+  }
+  document.getElementById('tab-focus').addEventListener('click', () => showTab('focus'));
+  document.getElementById('tab-map').addEventListener('click', () => showTab('map'));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { fcy.style(fxStyle()); drawFocus(); });
+  new MutationObserver(() => { fcy.style(fxStyle()); drawFocus(); drawTree(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  new ResizeObserver(() => { if (!document.getElementById('focus').hidden) { fcy.resize(); fitFocus(); } }).observe(document.getElementById('focus'));
+
+  // 처음에는 가장 많이 연결된 파일을 보여 준다
+  {
+    const { out, inc } = adjacency();
+    let best = null, bestScore = -1;
+    for (const n of G.nodes) {
+      if (n.kind !== 'file') continue;
+      const score = (out.get(n.id)?.size || 0) + (inc.get(n.id)?.size || 0);
+      if (score > bestScore) { best = n.id; bestScore = score; }
+    }
+    for (const n of G.nodes) if (!n.parent) openDirs.add(n.id);
+    if (best) fxFocus(best, { push: false }); else { drawTree(); fxDetail(); }
+  }
+})();
+</script>
+</body>
+</html>

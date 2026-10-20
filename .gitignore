@@ -1,0 +1,9 @@
+node_modules/
+dist/
+out/
+private/
+atlas/
+.atlas-cache/
+*.atlas.html
+graph*.json
+*.tgz

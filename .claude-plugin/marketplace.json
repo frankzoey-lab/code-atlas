@@ -1,0 +1,11 @@
+{
+  "name": "code-atlas",
+  "owner": { "name": "frankzoey-lab" },
+  "plugins": [
+    {
+      "name": "code-atlas",
+      "source": "./",
+      "description": "Map files, functions and call relations of TypeScript repos — across frontend and backend — as an interactive HTML atlas."
+    }
+  ]
+}

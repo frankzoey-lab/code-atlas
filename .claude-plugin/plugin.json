@@ -1,0 +1,10 @@
+{
+  "name": "code-atlas",
+  "version": "0.1.0",
+  "description": "Map files, functions and call relations of TypeScript repos — across frontend and backend — as an interactive HTML atlas.",
+  "author": { "name": "frankzoey-lab" },
+  "homepage": "https://github.com/frankzoey-lab/code-atlas",
+  "repository": "https://github.com/frankzoey-lab/code-atlas",
+  "license": "MIT",
+  "keywords": ["architecture", "call-graph", "typescript", "visualization"]
+}

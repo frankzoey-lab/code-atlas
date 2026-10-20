@@ -1,0 +1,60 @@
+{
+  "name": "code-atlas",
+  "version": "0.1.0",
+  "description": "Draw files, functions and call relations of TypeScript repos — across frontend and backend — as an interactive HTML map.",
+  "keywords": [
+    "typescript",
+    "call-graph",
+    "dependency-graph",
+    "visualization",
+    "code-map",
+    "nestjs",
+    "react",
+    "nextjs",
+    "architecture",
+    "claude-code"
+  ],
+  "license": "MIT",
+  "author": "frankzoey-lab",
+  "homepage": "https://github.com/frankzoey-lab/code-atlas#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frankzoey-lab/code-atlas.git"
+  },
+  "bugs": {
+    "url": "https://github.com/frankzoey-lab/code-atlas/issues"
+  },
+  "type": "module",
+  "bin": {
+    "code-atlas": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "viewer",
+    "README.md",
+    "README.ko.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "atlas": "tsx src/cli.ts",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "picomatch": "^4.0.7",
+    "ts-morph": "^24.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/picomatch": "^4.0.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.6.3",
+    "vitest": "^5.0.5"
+  }
+}

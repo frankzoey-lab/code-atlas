@@ -1,0 +1,8 @@
+{
+  "repos": [
+    { "name": "fe", "path": "fe" },
+    { "name": "be", "path": "be" }
+  ],
+  "http": [{ "from": "fe", "base": ["NEXT_PUBLIC_API_URL"], "to": "be" }],
+  "socket": [{ "client": "fe", "server": "be" }]
+}
