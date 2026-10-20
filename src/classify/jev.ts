@@ -68,8 +68,10 @@ export async function classifyGraph(graph: AtlasGraph, config: ResolvedConfig, o
   }
 
   const criteria: Record<string, string> = {};
+  const groupText = new Map(config.groups.map((g) => [g.name, g.description ? `${g.name}: ${g.description}` : g.name]));
   for (const rule of config.featureRules) {
-    criteria[rule.name] = rule.description ?? `${rule.name} (paths: ${rule.include.join(', ')})`;
+    const text = rule.description ?? `${rule.name} (paths: ${rule.include.join(', ')})`;
+    criteria[rule.name] = rule.group ? `[${groupText.get(rule.group)}] ${text}` : text;
   }
   criteria[OTHER_FEATURE.name] = OTHER_DESCRIPTION;
   if (Object.keys(criteria).length > MAX_OPTIONS) {

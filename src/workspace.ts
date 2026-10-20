@@ -80,14 +80,15 @@ export function buildWorkspaceWithWarnings(ws: WorkspaceConfig): WorkspaceResult
 }
 
 /** 각 repo 를 추출한다 (인터페이스 포함). 아직 id 접두 · 병합 전이다 */
-export function extractWorkspace(ws: WorkspaceConfig): ExtractedRepo[] {
+/** configs: 이미 읽은 repo 별 설정 (이름 → 설정). 없으면 여기서 읽는다 */
+export function extractWorkspace(ws: WorkspaceConfig, configs?: Map<string, ResolvedConfig>): ExtractedRepo[] {
   validateWorkspace(ws);
   return ws.repos.map((repo) => {
     const links = (ws.http ?? []).filter((l) => l.from === repo.name);
     const fileMatchers = links.map((l) => (l.files ? picomatch(l.files) : () => true));
     const isBase = (text: string, rel: string) =>
       links.some((l, i) => fileMatchers[i](rel) && l.base.includes(text));
-    const config = loadConfig(repo.config);
+    const config = configs?.get(repo.name) ?? loadConfig(repo.config);
     const { graph, interfaces } = extractRepo({ repo: repo.path, config, interfaceBase: isBase });
     return { name: repo.name, path: repo.path, config, graph, interfaces };
   });
@@ -100,6 +101,7 @@ export function assembleWorkspace(ws: WorkspaceConfig, repos: ExtractedRepo[]): 
   const nodes: AtlasNode[] = [];
   const edges: AtlasEdge[] = [];
   const features: Feature[] = [];
+  const groups: NonNullable<AtlasGraph['groups']> = [];
   const ifaces = new Map<string, RepoInterfaces>();
 
   for (const repo of repos) {
@@ -120,7 +122,8 @@ export function assembleWorkspace(ws: WorkspaceConfig, repos: ExtractedRepo[]): 
     const top = [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? OTHER_FEATURE.name;
     nodes.push({ id: repoId, kind: 'repo', name: repo.name, path: '', feature: featureName(top) });
     for (const e of graph.edges) edges.push({ ...e, source: p(e.source), target: p(e.target) });
-    for (const f of graph.features) features.push({ name: featureName(f.name), color: f.color });
+    for (const f of graph.features) features.push({ ...f, name: featureName(f.name), repo: repo.name });
+    for (const g of graph.groups ?? []) groups.push({ ...g, repo: repo.name });
   }
 
   const ifaceNodes = new Map<string, AtlasNode>();
@@ -207,6 +210,7 @@ export function assembleWorkspace(ws: WorkspaceConfig, repos: ExtractedRepo[]): 
       edges: edges.length,
     },
     features,
+    ...(groups.length ? { groups } : {}),
     nodes,
     edges,
   };

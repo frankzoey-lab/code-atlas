@@ -125,6 +125,7 @@ export function extractRepo({ repo, config, scope, externals, interfaceBase }: E
       edges: edges.length,
     },
     features,
+    ...(config.groups.length ? { groups: config.groups } : {}),
     nodes,
     edges,
   };

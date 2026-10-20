@@ -85,6 +85,18 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
 .legend label { display: grid; grid-template-columns: auto 12px 1fr auto; align-items: center; gap: 8px; cursor: pointer; padding: 3px 0; }
 .legend .sw { width: 12px; height: 12px; border-radius: 3px; }
 .legend .n { color: var(--muted); font-family: var(--f-mono); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+/* 기능 계층: repo > 그룹 > 기능. 줄 앞 ▸ 를 누르면 접힌다 */
+.legend details > summary { list-style: none; display: grid; grid-template-columns: 26px 1fr; align-items: center; gap: 2px; cursor: pointer; }
+.legend details > summary::-webkit-details-marker { display: none; }
+/* 접기 · 펼치기: 누르기 쉬운 24px 칸 */
+.legend details > summary::before {
+  content: '▸'; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px;
+  color: var(--fg); font-size: 14px; line-height: 1;
+}
+.legend details > summary:hover::before { background: var(--line); }
+.legend details[open] > summary::before { content: '▾'; }
+.legend .kids { display: grid; gap: 4px; padding-left: 14px; border-left: 1px solid var(--line); margin-left: 12px; }
+.legend .grp > span:nth-child(3) { font-weight: 600; }
 .opts { display: grid; gap: 6px; }
 .opts label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
 .keys { display: grid; gap: 4px; color: var(--muted); font-size: 12.5px; }
@@ -111,7 +123,7 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
 .keys i.iface { border-top: 3px solid var(--iface); }
 .keys i.sock { border-top: 2px dotted var(--iface); }
 .canvas-note { position: absolute; inset: 0; margin: auto; height: fit-content; max-width: 28ch; text-align: center; color: var(--muted); z-index: 1; pointer-events: none; }
-.legend-actions { display: flex; gap: 6px; margin-top: 6px; }
+.legend-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .legend-actions .btn { padding: 3px 8px; font-size: 12px; }
 @media (max-width: 900px) {
   .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 60vh auto; }
@@ -158,8 +170,8 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
     </div>
     <div>
       <div class="label" data-i18n="fx.features">Features (unchecked ones are hidden)</div>
+      <div class="legend-actions"><button class="btn" id="fx-all" data-i18n="all">All on</button><button class="btn" id="fx-none" data-i18n="none">All off</button><button class="btn" data-fold="fx-legend" data-open="1" data-i18n="expand">Expand</button><button class="btn" data-fold="fx-legend" data-i18n="collapse">Collapse</button></div>
       <div class="legend" id="fx-legend"></div>
-      <div class="legend-actions"><button class="btn" id="fx-all" data-i18n="all">All on</button><button class="btn" id="fx-none" data-i18n="none">All off</button></div>
     </div>
     <div>
       <div class="label" data-i18n="fx.files">Files</div>
@@ -184,8 +196,8 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
     </div>
     <div>
       <div class="label" data-i18n="map.features">Features</div>
+      <div class="legend-actions"><button class="btn" id="ft-all" data-i18n="all">All on</button><button class="btn" id="ft-none" data-i18n="none">All off</button><button class="btn" data-fold="legend" data-open="1" data-i18n="expand">Expand</button><button class="btn" data-fold="legend" data-i18n="collapse">Collapse</button></div>
       <div class="legend" id="legend"></div>
-      <div class="legend-actions"><button class="btn" id="ft-all" data-i18n="all">All on</button><button class="btn" id="ft-none" data-i18n="none">All off</button></div>
     </div>
     <div>
       <div class="label" data-i18n="map.display">Display</div>
@@ -257,7 +269,7 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
       'map.big': 'Drawing {n} nodes. If it is slow, turn off features or go back to the file level.',
       'map.clickHint': 'Click a node to see what it calls and what calls it.',
       'edge.call': 'Call', 'edge.render': 'JSX render', 'edge.import': 'Import only', 'edge.http': 'HTTP request · handler', 'edge.socket': 'Socket emit · listen',
-      all: 'All on', none: 'All off', unmatchedTitle: 'Unmatched interfaces ({n})', none2: 'None',
+      all: 'All on', none: 'All off', expand: 'Expand', collapse: 'Collapse', unmatchedTitle: 'Unmatched interfaces ({n})', none2: 'None',
       calls: 'Calls', calledBy: 'Called by', handledBy: 'Handled by', calledFrom: 'Called from', listeners: 'Listeners', emitters: 'Emitters',
       outOfScope: 'Out of scope', jev: 'Jev · confidence {c}', jevTitle: 'Feature picked by TypeSafe Jev, not by a path rule',
       callSites: 'Call sites', moreSites: '{n} more', expand: 'Expand', collapse: 'Collapse',
@@ -285,7 +297,7 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
       'map.big': '노드 {n}개를 그립니다. 느리면 기능을 끄거나 파일 단계로 돌아가세요.',
       'map.clickHint': '노드를 클릭하면 호출하는 쪽과 호출받는 쪽이 여기에 나옵니다.',
       'edge.call': '호출', 'edge.render': 'JSX 렌더', 'edge.import': 'import만 함', 'edge.http': 'HTTP 요청 · 처리', 'edge.socket': '소켓 보내기 · 받기',
-      all: '모두 켜기', none: '모두 끄기', unmatchedTitle: '짝 없는 인터페이스 ({n})', none2: '없음',
+      all: '모두 켜기', none: '모두 끄기', expand: '모두 펼치기', collapse: '모두 접기', unmatchedTitle: '짝 없는 인터페이스 ({n})', none2: '없음',
       calls: '부르는 것', calledBy: '불리는 곳', handledBy: '처리하는 곳', calledFrom: '호출하는 곳', listeners: '받는 곳', emitters: '보내는 곳',
       outOfScope: '범위 밖', jev: 'Jev 분류 · 신뢰도 {c}', jevTitle: '경로 규칙이 아니라 TypeSafe Jev 가 고른 기능',
       callSites: '호출 위치', moreSites: '외 {n}곳', expand: '펼치기', collapse: '접기',
@@ -309,6 +321,15 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
   const featureLabel = (name) => {
     const m = /^(.* · )?(Other|External packages|Interfaces)$/.exec(name);
     return m ? `${m[1] ?? ''}${T(`feature.${m[2]}`)}` : name;
+  };
+  /** 배지용: 그룹이 있으면 'repo · 그룹 › 기능' */
+  const featureInfo = Object.fromEntries(G.features.map((f) => [f.name, f]));
+  const badgeLabel = (name) => {
+    const f = featureInfo[name];
+    if (!f?.group) return featureLabel(name);
+    const label = featureLabel(name);
+    const prefix = f.repo && label.startsWith(`${f.repo} · `) ? `${f.repo} · ` : '';
+    return `${prefix}${f.group} › ${label.slice(prefix.length)}`;
   };
   /** 인터페이스 묶음의 맨 위 노드 이름도 언어에 맞게 */
   const nodeName = (n) => (n.id === 'i:root' ? T('kind.interface') : n.name);
@@ -759,7 +780,7 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
       n.kind === 'endpoint' ? [T('handledBy'), T('calledFrom')] : n.kind === 'event' ? [T('listeners'), T('emitters')] : [T('calls'), T('calledBy')];
     box.innerHTML = `
       <div><h2>${esc(n.name)}</h2>
-        <span class="kind">${esc(KIND[n.kind] || n.kind)}</span> <span class="kind" style="border-color:${safeColor(color[n.feature])}">${esc(featureLabel(n.feature))}</span>
+        <span class="kind">${esc(KIND[n.kind] || n.kind)}</span> <span class="kind" style="border-color:${safeColor(color[n.feature])}">${esc(badgeLabel(n.feature))}</span>
         ${n.boundary ? `<span class="kind">${T('outOfScope')}</span>` : ''}
         ${n.classifiedBy === 'jev' ? `<span class="kind" title="${esc(T('jevTitle'))}">${T('jev', { c: Number(n.confidence).toFixed(2) })}</span>` : ''}
         <p class="path">${esc(where)}</p>
@@ -830,10 +851,74 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
     if (n.classifiedBy === 'jev') jevCount[n.feature] = (jevCount[n.feature] || 0) + 1;
   }
   const shown = G.features.filter((f) => fileCount[f.name]);
-  legend.innerHTML = shown.map((f, i) => `
-    <label><input type="checkbox" id="ft-${i}" data-feature="${esc(f.name)}" autocomplete="off">
-      <span class="sw" style="background:${safeColor(f.color)}"></span><span>${esc(featureLabel(f.name))}</span><span class="n">${fileCount[f.name]}${jevCount[f.name] ? ` (+${jevCount[f.name]} Jev)` : ''}</span></label>`).join('');
-  const syncLegend = () => legend.querySelectorAll('input').forEach((i) => { i.checked = state.features.has(i.dataset.feature); });
+
+  // ---------- 기능 범례: repo > 그룹 > 기능 트리 (두 탭이 같이 쓴다) ----------
+  /** [{ label, color, items }] 또는 기능 하나 { f } 의 목록. 처음 나온 순서를 지킨다 */
+  const groupBy = (list, key, label) => {
+    const out = [];
+    const seen = new Map();
+    for (const f of list) {
+      const k = key(f);
+      if (!k) { out.push({ f }); continue; }
+      if (!seen.has(k)) { const g = { label: label(k), items: [] }; seen.set(k, g); out.push(g); }
+      seen.get(k).items.push(f);
+    }
+    return out;
+  };
+  /** 그룹 색 · 설명 ('repo|그룹' → 그룹) */
+  const groupInfo = new Map((G.groups || []).map((g) => [`${g.repo ?? ''}|${g.name}`, g]));
+  const multiRepo = new Set(shown.map((f) => f.repo).filter(Boolean)).size > 1;
+  const legendTree = (multiRepo ? groupBy(shown, (f) => f.repo, (k) => k) : [{ items: shown }]).flatMap((top) => {
+    if (top.f) return [top];
+    const kids = groupBy(top.items, (f) => f.group, (k) => k);
+    for (const k of kids) if (!k.f) k.info = groupInfo.get(`${k.items[0].repo ?? ''}|${k.label}`);
+    return top.label ? [{ label: top.label, items: top.items, kids }] : kids;
+  });
+  /** repo 아래에서는 'repo · ' 를 떼고 보여 준다 */
+  const shortLabel = (f) => {
+    const l = featureLabel(f.name);
+    return f.repo && l.startsWith(`${f.repo} · `) ? l.slice(f.repo.length + 3) : l;
+  };
+  function legendHtml(idp, checked, withJev) {
+    let i = 0;
+    const leaf = (f) => `
+      <label><input type="checkbox" id="${idp}-${i++}" data-feature="${esc(f.name)}"${checked ? ' checked' : ''} autocomplete="off">
+        <span class="sw" style="background:${safeColor(f.color)}"></span><span>${esc(shortLabel(f))}</span><span class="n">${fileCount[f.name]}${withJev && jevCount[f.name] ? ` (+${jevCount[f.name]} Jev)` : ''}</span></label>`;
+    const branch = (g) => {
+      const items = g.items;
+      const n = items.reduce((a, f) => a + fileCount[f.name], 0);
+      const tip = g.info?.description ? ` title="${esc(g.info.description)}"` : '';
+      return `<details open><summary><label class="grp"${tip}><input type="checkbox" id="${idp}-${i++}" data-features="${esc(JSON.stringify(items.map((f) => f.name)))}"${checked ? ' checked' : ''} autocomplete="off">
+        <span class="sw" style="background:${safeColor(g.info?.color || items[0].color)}"></span><span>${esc(g.label)}</span><span class="n">${n}</span></label></summary>
+        <div class="kids">${(g.kids || items.map((f) => ({ f }))).map(node).join('')}</div></details>`;
+    };
+    const node = (x) => (x.f ? leaf(x.f) : branch(x));
+    return legendTree.map(node).join('');
+  }
+  /** 기능 체크는 집합 그대로, 상위 줄은 하위가 다 켜졌는지 · 일부만인지 */
+  function syncLegendEl(el, on) {
+    for (const input of el.querySelectorAll('input')) {
+      if (input.dataset.feature) { input.checked = on.has(input.dataset.feature); continue; }
+      const names = JSON.parse(input.dataset.features);
+      const k = names.filter((f) => on.has(f)).length;
+      input.checked = k === names.length;
+      input.indeterminate = k > 0 && k < names.length;
+    }
+  }
+  function applyLegendChange(ev, on) {
+    const t = ev.target;
+    for (const f of t.dataset.features ? JSON.parse(t.dataset.features) : [t.dataset.feature]) {
+      if (t.checked) on.add(f); else on.delete(f);
+    }
+  }
+
+  legend.innerHTML = legendHtml('ft', false, true);
+  // 범례 트리 모두 펼치기 · 접기 (두 탭 공용)
+  for (const b of document.querySelectorAll('[data-fold]')) {
+    if (!legendTree.some((x) => !x.f)) { b.hidden = true; continue; }
+    b.addEventListener('click', () => document.getElementById(b.dataset.fold).querySelectorAll('details').forEach((d) => { d.open = !!b.dataset.open; }));
+  }
+  const syncLegend = () => syncLegendEl(legend, state.features);
   const setAll = (on) => {
     const next = new Set(on ? shown.map((f) => f.name) : []);
     if (sameSet(next, state.features)) return;
@@ -844,8 +929,8 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
   document.getElementById('ft-all').addEventListener('click', () => setAll(true));
   document.getElementById('ft-none').addEventListener('click', () => setAll(false));
   legend.addEventListener('change', (ev) => {
-    const f = ev.target.dataset.feature;
-    if (ev.target.checked) state.features.add(f); else state.features.delete(f);
+    applyLegendChange(ev, state.features);
+    syncLegend();
     render();
   });
 
@@ -1198,7 +1283,7 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
     box.innerHTML = `
       <div><h2>${esc(n.name)}</h2>
         <span class="kind">${esc(KIND[n.kind] || n.kind)}</span>
-        ${n.kind === 'interface' ? '' : `<span class="kind" style="border-color:${safeColor(color[n.feature])}">${esc(featureLabel(n.feature))}</span>`}
+        ${n.kind === 'interface' ? '' : `<span class="kind" style="border-color:${safeColor(color[n.feature])}">${esc(badgeLabel(n.feature))}</span>`}
         ${n.classifiedBy === 'jev' ? `<span class="kind" title="${esc(T('jevTitle'))}">${T('jev', { c: Number(n.confidence).toFixed(2) })}</span>` : ''}
         <p class="path">${esc(where)}</p>
         ${n.doc ? `<p class="doc">${esc(n.doc)}</p>` : ''}
@@ -1239,10 +1324,11 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
       ${open && hasKids ? `<div class="kids">${kidsOf(id).map(treeRow).join('')}</div>` : ''}`;
   }
 
-  function drawTree() {
+  /** reveal: 고른 줄이 보이게 스크롤한다. 포커스를 바꿀 때만 (기능 체크 · 폴더 열기 때는 패널을 그대로 둔다) */
+  function drawTree({ reveal = false } = {}) {
     const roots = G.nodes.filter((n) => !n.parent && fxVisible(n.id)).map((n) => n.id);
     treeBox.innerHTML = roots.map(treeRow).join('');
-    treeBox.querySelector('.row.on')?.scrollIntoView({ block: 'nearest' });
+    if (reveal) treeBox.querySelector('.row.on')?.scrollIntoView({ block: 'nearest' });
   }
 
   treeBox.addEventListener('click', (ev) => {
@@ -1273,7 +1359,7 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
     document.getElementById('fx-back').disabled = !FX.history.length;
     drawFocus();
     fxDetail();
-    drawTree();
+    drawTree({ reveal: true });
   }
 
   fcy.on('tap', 'node', (ev) => {
@@ -1341,12 +1427,10 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
   document.getElementById('fx-imports').addEventListener('change', (ev) => { FX.imports = ev.target.checked; drawFocus(); fxDetail(); });
 
   const fxLegend = document.getElementById('fx-legend');
-  fxLegend.innerHTML = shown.map((f, i) => `
-    <label><input type="checkbox" id="fxft-${i}" data-feature="${esc(f.name)}" checked autocomplete="off">
-      <span class="sw" style="background:${safeColor(f.color)}"></span><span>${esc(featureLabel(f.name))}</span><span class="n">${fileCount[f.name]}</span></label>`).join('');
+  fxLegend.innerHTML = legendHtml('fxft', true, false);
   const fxSetAll = (on) => {
     FX.features = new Set(on ? shown.map((f) => f.name) : []);
-    fxLegend.querySelectorAll('input').forEach((i) => { i.checked = on; });
+    syncLegendEl(fxLegend, FX.features);
     drawFocus();
     drawTree();
   };
@@ -1355,11 +1439,11 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
   // 새로고침 때 브라우저가 되살린 체크 상태를 화면 상태에 맞춘다
   window.addEventListener('pageshow', () => {
     document.getElementById('fx-imports').checked = FX.imports;
-    fxLegend.querySelectorAll('input').forEach((i) => { i.checked = FX.features.has(i.dataset.feature); });
+    syncLegendEl(fxLegend, FX.features);
   });
   fxLegend.addEventListener('change', (ev) => {
-    const f = ev.target.dataset.feature;
-    if (ev.target.checked) FX.features.add(f); else FX.features.delete(f);
+    applyLegendChange(ev, FX.features);
+    syncLegendEl(fxLegend, FX.features);
     drawFocus();
     drawTree();
   });

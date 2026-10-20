@@ -154,6 +154,8 @@ export function detectLinks(repos: DetectedRepo[]): DetectedLinks {
 /** repo 별 atlas.config 초안 */
 export function repoConfig(repo: DetectedRepo): AtlasConfig {
   return {
+    // 스킬(또는 사람)이 규칙을 다듬고 지울 때까지 지도를 만들지 않는다
+    draft: true,
     ...(repo.tsconfig && repo.tsconfig !== 'tsconfig.json' ? { tsconfig: repo.tsconfig } : {}),
     exclude: DEFAULT_EXCLUDE,
     features: repo.features,

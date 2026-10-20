@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- `init` marks the drafted configs with `"draft": true`; the build refuses to run until the rules are refined and the line is deleted (`--allow-draft` to override). The build also warns about features that match 0 files.
+- Feature groups: `"group"` on a feature and optional `"groups"` with color and description. The viewer legend becomes a repo › group › feature tree with group checkboxes, expand / collapse all, and the All on / All off buttons above it.
+- Adding groups changes the feature descriptions sent to Jev, so the Jev cache of that repo is rebuilt on the next `--classify` run.
+- Run straight from GitHub with `npx -y github:frankzoey-lab/code-atlas` (built by the `prepare` script).
+- When publishing to npm, bring back the shorter `npx code-atlas …` in README.md, README.ko.md and skills/code-atlas/SKILL.md.
+
 ## 0.1.0
 
 First public release.

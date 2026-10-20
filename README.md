@@ -13,38 +13,43 @@ It runs locally. Your code is never uploaded anywhere (see [Jev](#optional-class
 
 ## Quick start
 
-Run it straight from GitHub — nothing to install:
-
-```bash
-npx -y github:frankzoey-lab/code-atlas init
-npx -y github:frankzoey-lab/code-atlas atlas/atlas.workspace.json --open
-```
-
-Once it is on npm, the shorter `npx code-atlas …` works the same way:
+Run it straight from GitHub. npx checks GitHub for the latest commit on every run, so it needs a network connection; the first run, and the first run after a new commit, also downloads and builds it, which takes a little longer:
 
 ```bash
 # import one or more repos (local paths or git URLs) and draft a workspace
-npx code-atlas init
+npx -y github:frankzoey-lab/code-atlas init
 
 # build and open the map
-npx code-atlas atlas/atlas.workspace.json --open
+npx -y github:frankzoey-lab/code-atlas atlas/atlas.workspace.json --open
+```
+
+If npm install scripts are turned off (`ignore-scripts`), the build step does not run and `code-atlas` is not found — turn them back on for this command:
+
+```bash
+# macOS / Linux
+npm_config_ignore_scripts=false npx -y github:frankzoey-lab/code-atlas --version
+```
+
+```powershell
+# Windows PowerShell
+$env:npm_config_ignore_scripts="false"; npx -y github:frankzoey-lab/code-atlas --version
 ```
 
 A single repo works too:
 
 ```bash
-npx code-atlas ./my-app --open
+npx -y github:frankzoey-lab/code-atlas ./my-app --open
 ```
 
 `init` asks for repos one per line, or takes them as flags:
 
 ```bash
-npx code-atlas init --repo ./web --repo git@github.com:acme/api.git#main --yes
+npx -y github:frankzoey-lab/code-atlas init --repo ./web --repo git@github.com:acme/api.git#main --yes
 ```
 
 - Local paths are used as they are. Git URLs (`gh:owner/repo`, `https://…`, `git@…`, optional `#branch`) are shallow-cloned into `~/.cache/code-atlas` and refreshed on every build (`--no-fetch` to skip). Private repos use your own git credentials (ssh keys or a credential helper — URLs with a password or token in them are refused). For ssh, make sure the host key is already trusted, since prompts are not shown.
 - It detects which repos are frontends and backends, links each `process.env.*` API base to the backend whose routes it matches, links Socket.io client and server, and drafts feature rules from `docs/` folders or your source folders.
-- It writes `atlas/atlas.workspace.json` and one `atlas/<repo>.atlas.json` per repo. Edit the feature rules, then build.
+- It writes `atlas/atlas.workspace.json` and one `atlas/<repo>.atlas.json` per repo. The feature rules are only a folder-name draft, marked `"draft": true`, and the build refuses to run until that line is gone. Refine them with the [Claude Code plugin](#claude-code-plugin) (or by hand), then delete it. `--allow-draft` builds from the draft anyway.
 
 ## Configuration
 
@@ -54,13 +59,17 @@ npx code-atlas init --repo ./web --repo git@github.com:acme/api.git#main --yes
 {
   "tsconfig": "tsconfig.json",
   "exclude": ["**/*.spec.ts"],
+  "groups": [{ "name": "Assistant", "color": "#7a4bc2", "description": "Everything around the AI assistant" }],
   "features": [
-    { "name": "Chat", "color": "#7a4bc2", "include": ["src/chat/**", "src/lib/chat*.ts"], "description": "AI chat UI and its API client" }
+    { "name": "Chat", "group": "Assistant", "include": ["src/chat/**", "src/lib/chat*.ts"], "description": "AI chat UI and its API client" },
+    { "name": "Voice", "group": "Assistant", "include": ["src/voice/**"] },
+    { "name": "Billing", "color": "#d9480f", "include": ["src/billing/**"] }
   ]
 }
 ```
 
 - `include` globs are relative to the repo. The first matching rule wins; files that match nothing are **Other**.
+- `group` (optional) puts features under a group in the viewer's legend, where a group checkbox turns all of them on or off. A feature without its own `color` gets a shade of its group's color.
 - Folders take the color of most of their files.
 - Without a `tsconfig.json`, every `.ts/.tsx/.js/.jsx` file is opened with default options.
 
@@ -87,6 +96,8 @@ npx code-atlas init --repo ./web --repo git@github.com:acme/api.git#main --yes
 
 ## Commands
 
+Below, `code-atlas` stands for `npx -y github:frankzoey-lab/code-atlas`.
+
 ```text
 code-atlas init [--repo <path|git-url[#branch]>]... [--yes] [--dir atlas]
 code-atlas <workspace.json | repo-path> [--out atlas.html] [--open] [--classify]
@@ -96,6 +107,7 @@ code-atlas render <graph.json> --out atlas.html
 
 - `--scope sub/dir`: only that folder plus what it connects to.
 - `--externals`: show calls into npm packages as package nodes.
+- `--allow-draft`: build even if a config still has `"draft": true`.
 - `--no-editor-links`: leave out your local paths (use this before sharing the HTML file).
 - `--lang en|ko`: message language (defaults to `LANG`). The viewer follows the browser language and has a switch.
 
@@ -114,7 +126,7 @@ Then ask Claude Code something like "draw the structure of these repos". The ski
 
 ```bash
 export TYPESAFE_API_KEY=...
-npx code-atlas atlas/atlas.workspace.json --classify
+npx -y github:frankzoey-lab/code-atlas atlas/atlas.workspace.json --classify
 ```
 
 - Sent per file: its path, the names of its functions / components / classes, and the paths and features of the files it depends on. Source code is sent only with `"classify": { "includeSource": true }` — exclude files that may contain secrets first.

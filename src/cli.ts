@@ -25,6 +25,7 @@ const ARG_OPTIONS = {
     repo: { type: 'string', multiple: true },
     dir: { type: 'string' },
     yes: { type: 'boolean', short: 'y', default: false },
+    'allow-draft': { type: 'boolean', default: false },
     'no-fetch': { type: 'boolean', default: false },
     'no-editor-links': { type: 'boolean', default: false },
     help: { type: 'boolean', short: 'h', default: false },
@@ -79,6 +80,23 @@ async function classify(graph: AtlasGraph, config: ResolvedConfig, repo: string,
   );
 }
 
+/** init 초안("draft": true) 설정이 남아 있으면 그리지 않는다 (스킬로 다듬게 하려고) */
+function blockDrafts(configs: [path: string | undefined, config: ResolvedConfig][]) {
+  if (values['allow-draft']) return;
+  const drafts = configs.filter(([path, c]) => path && c.draft).map(([path]) => path!);
+  if (!drafts.length) return;
+  console.error(t('cli.draftBlocked', { files: drafts.map((f) => `  ${f}`).join('\n') }));
+  process.exit(1);
+}
+
+/** 규칙에 맞는 파일이 하나도 없는 기능 (순서 실수 · 잘못된 glob) */
+function warnEmptyFeatures(graph: AtlasGraph, config: ResolvedConfig, repo: string) {
+  const used = new Set(graph.nodes.filter((n) => n.kind === 'file').map((n) => n.feature));
+  for (const rule of config.featureRules) {
+    if (!used.has(rule.name)) console.error(t('cli.warning', { text: t('warn.emptyFeature', { repo, feature: rule.name }) }));
+  }
+}
+
 /** `./src/x/`, `src\\x` → `src/x` */
 function normalizeScope(scope?: string): string | undefined {
   const s = scope?.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
@@ -88,11 +106,14 @@ function normalizeScope(scope?: string): string | undefined {
 async function buildRepo(repo: string, out: string): Promise<AtlasGraph> {
   const started = Date.now();
   const config = loadConfig(values.config);
+  blockDrafts([[values.config, config]]);
   const graph = extract({ repo, config, scope: normalizeScope(values.scope), externals: values.externals });
-  await classify(graph, config, repo, out);
   const { files, symbols, edges } = graph.meta;
   if (graph.meta.scope && files === 0) console.error(t('cli.scopeEmpty', { scope: graph.meta.scope }));
   else if (files === 0) console.error(t('cli.warning', { text: t('warn.noFiles', { repo, tsconfig: config.explicitTsconfig ? config.tsconfig : findTsconfig(repo) ?? '-' }) }));
+  // 경로 규칙 기준으로 본다 (Jev 분류 전)
+  else if (!graph.meta.scope) warnEmptyFeatures(graph, config, repo);
+  await classify(graph, config, repo, out);
   console.error(t('cli.extracted', { files, symbols, edges, secs: secs(started) }));
   return graph;
 }
@@ -100,15 +121,18 @@ async function buildRepo(repo: string, out: string): Promise<AtlasGraph> {
 async function buildWorkspace(file: string, out: string): Promise<AtlasGraph> {
   const started = Date.now();
   const ws = loadWorkspace(file);
+  const configs = new Map(ws.repos.map((r) => [r.name, loadConfig(r.config)]));
+  blockDrafts(ws.repos.map((r) => [r.config, configs.get(r.name)!]));
   // git 에서 받는 repo 는 실행할 때마다 최신으로 맞춘다 (--no-fetch 면 캐시 그대로)
   for (const repo of ws.repos) {
     if (repo.source && (!values['no-fetch'] || !existsSync(repo.path))) {
       repo.path = ensureRepo(repo.source.git, repo.source.branch, (line) => console.error(line));
     }
   }
-  const repos = extractWorkspace(ws);
+  const repos = extractWorkspace(ws, configs);
   for (const r of repos) {
     if (!r.graph.meta.files) console.error(t('cli.warning', { text: t('warn.noFiles', { repo: r.name, tsconfig: r.config.explicitTsconfig ? r.config.tsconfig : findTsconfig(r.path) ?? '-' }) }));
+    else warnEmptyFeatures(r.graph, r.config, r.name);
   }
   for (const repo of repos) await classify(repo.graph, repo.config, repo.path, out, ` (${repo.name})`);
   const { graph, warnings } = assembleWorkspace(ws, repos);

@@ -53,6 +53,10 @@ export interface AtlasEdge {
 export interface Feature {
   name: string;
   color: string;
+  /** 상위 그룹 (설정의 feature.group) */
+  group?: string;
+  /** workspace 에서 이 기능이 속한 repo */
+  repo?: string;
 }
 
 export interface AtlasGraph {
@@ -70,8 +74,16 @@ export interface AtlasGraph {
     roots?: Record<string, string>;
   };
   features: Feature[];
+  /** 기능 그룹 (범례 색 · 설명). workspace 는 repo 를 함께 싣는다 */
+  groups?: (FeatureGroup & { repo?: string })[];
   nodes: AtlasNode[];
   edges: AtlasEdge[];
+}
+
+export interface FeatureGroup {
+  name: string;
+  color?: string;
+  description?: string;
 }
 
 /** 어떤 규칙에도 안 맞는 파일의 기능. 뷰어가 언어에 맞게 이름을 바꿔 보여 준다 */
