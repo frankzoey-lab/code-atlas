@@ -44,7 +44,7 @@ export interface ClassifyStats {
   byFeature: Record<string, number>;
 }
 
-interface JevAnswer {
+export interface JevAnswer {
   choice: string;
   confidence: number;
 }
@@ -82,16 +82,7 @@ export async function classifyGraph(graph: AtlasGraph, config: ResolvedConfig, o
   for (const n of graph.nodes) byPath.set(n.path, [...(byPath.get(n.path) ?? []), n]);
   const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
 
-  const cachePath = join(options.cacheDir, 'jev.json');
-  const cache = readCache(cachePath, options.log);
-  let unsaved = 0;
-  const flush = () => {
-    mkdirSync(dirname(cachePath), { recursive: true });
-    // 임시 파일에 쓰고 바꿔 끼워, 쓰는 도중 멈춰도 캐시가 깨지지 않게
-    writeFileSync(`${cachePath}.tmp`, JSON.stringify(cache));
-    renameSync(`${cachePath}.tmp`, cachePath);
-    unsaved = 0;
-  };
+  const { cache, put, flush } = openCache(options.cacheDir, options.log);
   const post = makePoster(apiKey, options);
 
   let results: { file: AtlasNode; answer?: JevAnswer }[];
@@ -115,8 +106,7 @@ export async function classifyGraph(graph: AtlasGraph, config: ResolvedConfig, o
         });
         stats.inputTokens += inputTokens;
         if (!validAnswer(answer, criteria)) throw new Error(t('jev.badAnswer', { choice: String(answer.choice).slice(0, 40) }));
-        cache[key] = { v: CACHE_VERSION, answer };
-        if (++unsaved >= CACHE_FLUSH_EVERY) flush();
+        put(key, answer);
         return { file, answer };
       } catch (e) {
         if (e instanceof JevAuthError) {
@@ -158,9 +148,28 @@ export async function classifyGraph(graph: AtlasGraph, config: ResolvedConfig, o
   return stats;
 }
 
-const CACHE_VERSION = 1;
+export const CACHE_VERSION = 1;
 
 type CacheEntry = { v: number; answer: JevAnswer };
+
+/** <cacheDir>/jev.json 응답 캐시. 분류 · 중복 확인이 같이 쓴다 (키에 질문이 들어 있어 겹치지 않는다) */
+export function openCache(cacheDir: string, log?: (line: string) => void) {
+  const cachePath = join(cacheDir, 'jev.json');
+  const cache = readCache(cachePath, log);
+  let unsaved = 0;
+  const flush = () => {
+    mkdirSync(dirname(cachePath), { recursive: true });
+    // 임시 파일에 쓰고 바꿔 끼워, 쓰는 도중 멈춰도 캐시가 깨지지 않게
+    writeFileSync(`${cachePath}.tmp`, JSON.stringify(cache));
+    renameSync(`${cachePath}.tmp`, cachePath);
+    unsaved = 0;
+  };
+  const put = (key: string, answer: JevAnswer) => {
+    cache[key] = { v: CACHE_VERSION, answer };
+    if (++unsaved >= CACHE_FLUSH_EVERY) flush();
+  };
+  return { cache, put, flush };
+}
 
 /** 지금 버전의 항목만 읽는다 (예전 형식 항목은 버려 파일이 계속 커지지 않게) */
 function readCache(path: string, log?: (line: string) => void): Record<string, CacheEntry> {
@@ -177,7 +186,7 @@ function readCache(path: string, log?: (line: string) => void): Record<string, C
   }
 }
 
-function validAnswer(answer: JevAnswer, criteria: Record<string, string>): boolean {
+export function validAnswer(answer: JevAnswer, criteria: Record<string, string>): boolean {
   return (
     typeof answer?.choice === 'string' &&
     Object.hasOwn(criteria, answer.choice) &&
@@ -245,7 +254,8 @@ export function fileState(
   return state;
 }
 
-function makePoster(apiKey: string, options: ClassifyOptions) {
+/** question: 응답의 answers 아래 질문 이름 (분류는 feature, 중복 확인은 same) */
+export function makePoster(apiKey: string, options: Pick<ClassifyOptions, 'fetchImpl' | 'backoffMs'>, question = 'feature') {
   const fetchImpl = options.fetchImpl ?? fetch;
   const backoff = options.backoffMs ?? 500;
   return async (body: unknown): Promise<{ answer: JevAnswer; inputTokens: number }> => {
@@ -263,7 +273,7 @@ function makePoster(apiKey: string, options: ClassifyOptions) {
         if (attempt >= 4) throw e;
       }
       if (res?.ok) {
-        let json: { answers?: { feature?: JevAnswer }; usage?: { input_tokens?: number } };
+        let json: { answers?: Record<string, JevAnswer | undefined>; usage?: { input_tokens?: number } };
         try {
           json = await res.json();
         } catch (e) {
@@ -272,9 +282,9 @@ function makePoster(apiKey: string, options: ClassifyOptions) {
           await new Promise((r) => setTimeout(r, backoff * 2 ** attempt));
           continue;
         }
-        const feature = json?.answers?.feature;
-        if (!feature) throw new Error(t('jev.badShape'));
-        return { answer: { choice: feature.choice, confidence: feature.confidence }, inputTokens: json.usage?.input_tokens ?? 0 };
+        const got = json?.answers?.[question];
+        if (!got) throw new Error(t('jev.badShape', { question }));
+        return { answer: { choice: got.choice, confidence: got.confidence }, inputTokens: json.usage?.input_tokens ?? 0 };
       }
       // 키 · 권한 · 잔액 문제는 파일마다 반복될 뿐이라 바로 멈춘다
       if (res && [401, 402, 403].includes(res.status)) {
@@ -290,7 +300,7 @@ function makePoster(apiKey: string, options: ClassifyOptions) {
 }
 
 /** 동시에 limit 개씩 돌린다. stop() 이 true 가 되면 새 항목은 꺼내지 않는다 (진행 중인 것은 끝까지) */
-async function mapLimit<T, R>(items: T[], limit: number, stop: () => boolean, fn: (item: T) => Promise<R>): Promise<R[]> {
+export async function mapLimit<T, R>(items: T[], limit: number, stop: () => boolean, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = [];
   let next = 0;
   const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {

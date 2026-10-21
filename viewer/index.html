@@ -18,6 +18,7 @@
   --edge: #8a94a6;
   --canvas: #fbfcfd;
   --iface: #e8590c;
+  --ok: #2f855a;
   --danger: #d6336c;
   --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
@@ -25,12 +26,12 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #10141b; --panel: #171d26; --fg: #e2e7ef; --muted: #96a1b3; --line: #29313d;
-    --accent: #ff8a4c; --edge: #6d7789; --canvas: #131820; --iface: #ff922b; --danger: #f06595; color-scheme: dark;
+    --accent: #ff8a4c; --edge: #6d7789; --canvas: #131820; --iface: #ff922b; --danger: #f06595; --ok: #69db7c; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #10141b; --panel: #171d26; --fg: #e2e7ef; --muted: #96a1b3; --line: #29313d;
-  --accent: #ff8a4c; --edge: #6d7789; --canvas: #131820; --iface: #ff922b; --danger: #f06595; color-scheme: dark;
+  --accent: #ff8a4c; --edge: #6d7789; --canvas: #131820; --iface: #ff922b; --danger: #f06595; --ok: #69db7c; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -48,6 +49,27 @@ aside.right { border-left: 1px solid var(--line); }
 [hidden] { display: none !important; }
 .stage { position: relative; min-width: 0; min-height: 0; background: var(--canvas); }
 #cy, #focus { position: absolute; inset: 0; }
+/* 분석 탭: 중복 · 순환 목록 */
+#analysis { position: absolute; inset: 0; overflow-y: auto; padding: 16px 20px; display: grid; gap: 10px; align-content: start; }
+.an-item { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; }
+.an-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.an-head b { color: var(--fg); font-size: 13px; }
+.an-badge { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-size: 11.5px; }
+.an-badge.same { border-color: var(--ok); color: var(--ok); }
+.an-badge.diff { border-color: var(--muted); }
+.an-members { display: grid; gap: 6px; }
+.an-members.pair { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.an-fn { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; background: var(--bg); }
+.an-fn .dot { width: 9px; height: 9px; border-radius: 50%; }
+.an-fn .nm { border: 0; background: none; color: var(--fg); font: inherit; font-weight: 600; text-align: left; cursor: pointer; padding: 0; overflow-wrap: anywhere; }
+.an-fn .nm:hover { text-decoration: underline; }
+.an-fn .where { display: block; color: var(--muted); font-family: var(--f-mono); font-size: 11.5px; overflow-wrap: anywhere; }
+.an-path { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: 13px; }
+.an-path button { border: 1px solid var(--line); background: var(--bg); color: var(--fg); font: inherit; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+.an-path button:hover { border-color: var(--accent); }
+.an-path .arrow { color: var(--muted); }
+.an-kinds label { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.an-kinds .n { color: var(--muted); font-family: var(--f-mono); font-size: 11.5px; }
 .panel { display: grid; gap: 18px; align-content: start; }
 .tabs { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
 .tabs button { border: 0; background: transparent; color: var(--fg); padding: 5px 14px; font: inherit; cursor: pointer; }
@@ -138,6 +160,7 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
     <div class="tabs" role="group" data-i18n-aria="view">
       <button id="tab-focus" aria-pressed="true" data-i18n="tab.focus">Focus</button>
       <button id="tab-map" aria-pressed="false" data-i18n="tab.map">Full map</button>
+      <button id="tab-analysis" aria-pressed="false" data-i18n="tab.analysis">Analysis</button>
     </div>
     <span class="meta" id="meta"></span>
     <select id="editor" class="btn" data-i18n-aria="editor.aria"></select>
@@ -224,12 +247,37 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
     </div>
     <button class="btn" id="relayout" data-i18n="map.relayout">Re-layout</button>
    </div>
+   <div class="panel" id="panel-analysis" hidden>
+    <div>
+      <div class="label" data-i18n="search">Search</div>
+      <input type="search" id="an-search" data-i18n-ph="an.searchPh" autocomplete="off">
+    </div>
+    <div>
+      <div class="label" data-i18n="an.kinds">Show</div>
+      <div class="an-kinds opts">
+        <label><span><input type="checkbox" id="an-dups" checked autocomplete="off"> <span data-i18n="an.dups">Duplicate functions</span></span><span class="n" id="an-n-dups"></span></label>
+        <label><span><input type="checkbox" id="an-calls" checked autocomplete="off"> <span data-i18n="an.calls">Call cycles</span></span><span class="n" id="an-n-calls"></span></label>
+        <label><span><input type="checkbox" id="an-imports" checked autocomplete="off"> <span data-i18n="an.imports">Import cycles</span></span><span class="n" id="an-n-imports"></span></label>
+      </div>
+    </div>
+    <div>
+      <div class="label"><span data-i18n="an.minSim">Minimum similarity</span> <span id="an-sim-v"></span></div>
+      <input type="range" id="an-sim" min="50" max="100" step="1" autocomplete="off">
+      <label id="an-jev-row" hidden style="display:flex;gap:8px;margin-top:8px"><input type="checkbox" id="an-jev" autocomplete="off"> <span data-i18n="an.jevOnly">Only those Jev judged the same</span></label>
+    </div>
+    <div>
+      <div class="label" data-i18n="an.features">Features</div>
+      <div class="legend-actions"><button class="btn" id="an-all" data-i18n="all">All on</button><button class="btn" id="an-none" data-i18n="none">All off</button></div>
+      <div class="legend" id="an-legend"></div>
+    </div>
+   </div>
   </aside>
 
   <div class="stage">
     <div id="focus" data-i18n-aria="fx.aria"></div>
     <div class="focus-bar" id="focus-bar"><button class="btn" id="fx-back" disabled data-i18n="fx.back">← Back</button></div>
     <div id="cy" data-i18n-aria="map.aria" hidden></div>
+    <div id="analysis" hidden></div>
   </div>
 
   <aside class="right detail" id="detail">
@@ -255,7 +303,8 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
   // ---------- 언어 (영어 기본, 한국어) ----------
   const I18N = {
     en: {
-      view: 'View', 'tab.focus': 'Focus', 'tab.map': 'Full map', search: 'Search',
+      view: 'View', 'tab.focus': 'Focus', 'tab.map': 'Full map', 'tab.analysis': 'Analysis',
+      'an.searchPh': 'Function or file name', 'an.kinds': 'Show', 'an.dups': 'Duplicate functions', 'an.calls': 'Call cycles (mutual recursion)', 'an.imports': 'Import cycles', 'an.minSim': 'Minimum similarity', 'an.jevOnly': 'Only those Jev judged the same', 'an.features': 'Features with results (number of results; an item shows if any of its members is on)', 'an.identical': 'Identical structure · {n} functions', 'an.similar': 'Similar {pct}%', 'an.tokens': '{n} tokens', 'an.jevSame': 'Jev: same job {c}', 'an.jevDiff': 'Jev: different {c}', 'an.callCycle': 'Call cycle · {n} functions', 'an.importCycle': 'Import cycle · {n} files', 'an.more': '+{n} more in this cycle', 'an.none': 'Nothing matches the filters.', 'an.shown': '{n} of {total} shown', 'an.goFocus': 'Show in focus view', 'an.members': 'All members', 'an.jevFirstTwo': '(first two)', search: 'Search',
       'fx.searchPh': 'File, function or endpoint name', 'fx.unit': 'Unit', 'unit.file': 'File', 'unit.fn': 'Function',
       'fx.depth': 'Depth', 'fx.d1': '1 hop', 'fx.d2': '2 hops', 'fx.imports': 'Also show import-only relations',
       'fx.features': 'Features (unchecked ones are hidden)', 'fx.files': 'Files', 'fx.back': '← Back', 'fx.aria': 'Call relations of the selected item',
@@ -283,7 +332,8 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
       'note.ambiguous': 'Several routes match: {routes}', 'note.noListener': 'Nothing in {repo} listens to it', 'note.noEmitter': 'Nothing in {repo} emits it',
     },
     ko: {
-      view: '보기', 'tab.focus': '포커스', 'tab.map': '전체 지도', search: '찾기',
+      view: '보기', 'tab.focus': '포커스', 'tab.map': '전체 지도', 'tab.analysis': '분석',
+      'an.searchPh': '함수 · 파일 이름', 'an.kinds': '보기', 'an.dups': '중복 함수', 'an.calls': '호출 순환 (상호 재귀)', 'an.imports': 'import 순환', 'an.minSim': '최소 유사도', 'an.jevOnly': 'Jev 가 같다고 본 것만', 'an.features': '결과가 있는 기능 (옆 숫자는 결과 수, 묶음 안 하나라도 켜진 기능이면 보임)', 'an.identical': '구조가 똑같음 · 함수 {n}개', 'an.similar': '비슷함 {pct}%', 'an.tokens': '토큰 {n}', 'an.jevSame': 'Jev: 같은 일 {c}', 'an.jevDiff': 'Jev: 다름 {c}', 'an.callCycle': '호출 순환 · 함수 {n}개', 'an.importCycle': 'import 순환 · 파일 {n}개', 'an.more': '이 순환에 {n}개 더', 'an.none': '필터에 맞는 것이 없습니다.', 'an.shown': '{total}개 중 {n}개', 'an.goFocus': '포커스로 보기', 'an.members': '전체 목록', 'an.jevFirstTwo': '(앞의 두 함수)', search: '찾기',
       'fx.searchPh': '파일 · 함수 · 엔드포인트 이름', 'fx.unit': '단위', 'unit.file': '파일', 'unit.fn': '함수',
       'fx.depth': '깊이', 'fx.d1': '1단계', 'fx.d2': '2단계', 'fx.imports': 'import만 한 관계도 보기',
       'fx.features': '기능 (끄면 트리 · 이웃에서 숨김)', 'fx.files': '파일', 'fx.back': '← 뒤로', 'fx.aria': '선택한 것의 호출 관계',
@@ -870,32 +920,34 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
   /** 그룹 색 · 설명 ('repo|그룹' → 그룹) */
   const groupInfo = new Map((G.groups || []).map((g) => [`${g.repo ?? ''}|${g.name}`, g]));
   const multiRepo = new Set(shown.map((f) => f.repo).filter(Boolean)).size > 1;
-  const legendTree = (multiRepo ? groupBy(shown, (f) => f.repo, (k) => k) : [{ items: shown }]).flatMap((top) => {
+  const makeTree = (list) => (multiRepo ? groupBy(list, (f) => f.repo, (k) => k) : [{ items: list }]).flatMap((top) => {
     if (top.f) return [top];
     const kids = groupBy(top.items, (f) => f.group, (k) => k);
     for (const k of kids) if (!k.f) k.info = groupInfo.get(`${k.items[0].repo ?? ''}|${k.label}`);
     return top.label ? [{ label: top.label, items: top.items, kids }] : kids;
   });
+  const legendTree = makeTree(shown);
   /** repo 아래에서는 'repo · ' 를 떼고 보여 준다 */
   const shortLabel = (f) => {
     const l = featureLabel(f.name);
     return f.repo && l.startsWith(`${f.repo} · `) ? l.slice(f.repo.length + 3) : l;
   };
-  function legendHtml(idp, checked, withJev) {
+  /** tree: makeTree 결과, countOf: 기능 이름들 → 옆에 보일 수 (기본: 파일 수 합) */
+  function legendHtml(idp, checked, withJev, tree = legendTree, countOf = (names) => names.reduce((a, f) => a + fileCount[f], 0)) {
     let i = 0;
     const leaf = (f) => `
       <label><input type="checkbox" id="${idp}-${i++}" data-feature="${esc(f.name)}"${checked ? ' checked' : ''} autocomplete="off">
-        <span class="sw" style="background:${safeColor(f.color)}"></span><span>${esc(shortLabel(f))}</span><span class="n">${fileCount[f.name]}${withJev && jevCount[f.name] ? ` (+${jevCount[f.name]} Jev)` : ''}</span></label>`;
+        <span class="sw" style="background:${safeColor(f.color)}"></span><span>${esc(shortLabel(f))}</span><span class="n">${countOf([f.name])}${withJev && jevCount[f.name] ? ` (+${jevCount[f.name]} Jev)` : ''}</span></label>`;
     const branch = (g) => {
       const items = g.items;
-      const n = items.reduce((a, f) => a + fileCount[f.name], 0);
+      const n = countOf(items.map((f) => f.name));
       const tip = g.info?.description ? ` title="${esc(g.info.description)}"` : '';
       return `<details open><summary><label class="grp"${tip}><input type="checkbox" id="${idp}-${i++}" data-features="${esc(JSON.stringify(items.map((f) => f.name)))}"${checked ? ' checked' : ''} autocomplete="off">
         <span class="sw" style="background:${safeColor(g.info?.color || items[0].color)}"></span><span>${esc(g.label)}</span><span class="n">${n}</span></label></summary>
         <div class="kids">${(g.kids || items.map((f) => ({ f }))).map(node).join('')}</div></details>`;
     };
     const node = (x) => (x.f ? leaf(x.f) : branch(x));
-    return legendTree.map(node).join('');
+    return tree.map(node).join('');
   }
   /** 기능 체크는 집합 그대로, 상위 줄은 하위가 다 켜졌는지 · 일부만인지 */
   function syncLegendEl(el, on) {
@@ -1477,16 +1529,119 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
 
   // ---------- 탭 ----------
   let mapShown = false;
+  // ================= 분석 탭 =================
+  const A = G.analysis;
+  // 분석 결과(중복 묶음 · 순환)가 걸친 기능만 범례에 두고, 옆 숫자는 그 기능이 걸친 결과 수
+  const anItems = A ? [...A.duplicates, ...A.callCycles, ...A.importCycles] : [];
+  const anByFeature = new Map();
+  anItems.forEach((item, i) => {
+    for (const id of item.members) {
+      const f = nodes.get(id)?.feature;
+      if (!f) continue;
+      if (!anByFeature.has(f)) anByFeature.set(f, new Set());
+      anByFeature.get(f).add(i);
+    }
+  });
+  const anShown = shown.filter((f) => anByFeature.has(f.name));
+  const anCountOf = (names) => new Set(names.flatMap((f) => [...(anByFeature.get(f) || [])])).size;
+  const AN = { features: new Set(anShown.map((f) => f.name)), dups: true, calls: true, imports: true, minSim: 0, jevOnly: false, q: '' };
+  const anBox = document.getElementById('analysis');
+  const anLegend = document.getElementById('an-legend');
+  if (!A) document.getElementById('tab-analysis').hidden = true;
+  else {
+    const minSeen = Math.min(100, ...A.duplicates.map((d) => Math.floor(d.similarity * 100)));
+    const sim = document.getElementById('an-sim');
+    sim.min = String(Math.min(minSeen, 100));
+    sim.value = sim.min;
+    AN.minSim = Number(sim.min) / 100;
+    document.getElementById('an-sim-v').textContent = `${sim.value}%`;
+    document.getElementById('an-n-dups').textContent = A.duplicates.length;
+    document.getElementById('an-n-calls').textContent = A.callCycles.length;
+    document.getElementById('an-n-imports').textContent = A.importCycles.length;
+    if (A.duplicates.some((d) => d.jev)) document.getElementById('an-jev-row').hidden = false;
+    anLegend.innerHTML = legendHtml('anft', true, false, makeTree(anShown), anCountOf);
+    const redraw = () => drawAnalysis();
+    sim.addEventListener('input', () => { AN.minSim = Number(sim.value) / 100; document.getElementById('an-sim-v').textContent = `${sim.value}%`; redraw(); });
+    for (const k of ['dups', 'calls', 'imports']) document.getElementById(`an-${k}`).addEventListener('change', (ev) => { AN[k] = ev.target.checked; redraw(); });
+    document.getElementById('an-jev').addEventListener('change', (ev) => { AN.jevOnly = ev.target.checked; redraw(); });
+    document.getElementById('an-search').addEventListener('input', (ev) => { AN.q = ev.target.value.trim().toLowerCase(); redraw(); });
+    anLegend.addEventListener('change', (ev) => { applyLegendChange(ev, AN.features); syncLegendEl(anLegend, AN.features); redraw(); });
+    const anSetAll = (on) => { AN.features = new Set(on ? anShown.map((f) => f.name) : []); syncLegendEl(anLegend, AN.features); redraw(); };
+    document.getElementById('an-all').addEventListener('click', () => anSetAll(true));
+    document.getElementById('an-none').addEventListener('click', () => anSetAll(false));
+    // 이름을 누르면 포커스 탭에서 그 함수 · 파일로
+    anBox.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-an]');
+      if (!b || !nodes.has(b.dataset.an)) return;
+      showTab('focus');
+      fxFocus(b.dataset.an);
+    });
+  }
+  const anVisible = (members) => {
+    const ns = members.map((id) => nodes.get(id)).filter(Boolean);
+    if (!ns.some((n) => AN.features.has(n.feature))) return false;
+    return !AN.q || ns.some((n) => n.name.toLowerCase().includes(AN.q) || n.path.toLowerCase().includes(AN.q));
+  };
+  /** 지도에 없는 노드(--scope 범위 밖)의 id 를 읽기 좋게: 's:src/a.ts#Cls.fn' → 'Cls.fn — src/a.ts' */
+  const idLabel = (id) => {
+    const m = /^(?:[\w-]+:)?[sf]:([^#]*)(?:#(.*))?$/.exec(id);
+    return m ? (m[2] ? `${m[2]} — ${m[1]}` : m[1]) : id;
+  };
+  const anFn = (id) => {
+    const n = nodes.get(id);
+    if (!n) return `<div class="an-fn"><span></span><span class="where">${esc(idLabel(id))}</span><span></span></div>`;
+    const where = n.line ? `${n.path}:${n.line}` : n.path;
+    return `<div class="an-fn"><span class="dot" style="background:${safeColor(color[n.feature])}"></span>
+      <span><button class="nm" data-an="${esc(id)}" title="${esc(T('an.goFocus'))}">${esc(n.name)}</button><span class="where">${esc(where)}</span></span>
+      ${editorButton(n)}</div>`;
+  };
+  const anName = (id) => {
+    const n = nodes.get(id);
+    return n ? `<button data-an="${esc(id)}" title="${esc(n.path)}">${esc(n.kind === 'file' ? n.path : n.name)}</button>` : `<span>${esc(idLabel(id))}</span>`;
+  };
+  const anCycle = (c, label) => `
+    <div class="an-item"><div class="an-head"><b>${esc(label)}</b>${c.members.length > c.path.length - 1 ? `<span>${esc(T('an.more', { n: c.members.length - (c.path.length - 1) }))}</span>` : ''}</div>
+      <div class="an-path">${c.path.map(anName).join('<span class="arrow">→</span>')}</div>
+      ${c.members.length > c.path.length - 1 ? `<details><summary class="an-head">${esc(T('an.members'))}</summary><div class="an-path" style="margin-top:6px">${c.members.map(anName).join('')}</div></details>` : ''}</div>`;
+  function drawAnalysis() {
+    if (!A) return;
+    const parts = [];
+    let total = 0;
+    if (AN.dups) {
+      for (const d of A.duplicates) {
+        total++;
+        if (d.similarity < AN.minSim || (AN.jevOnly && !d.jev?.same) || !anVisible(d.members)) continue;
+        const head = d.similarity === 1 ? T('an.identical', { n: d.members.length }) : T('an.similar', { pct: Math.round(d.similarity * 100) });
+        // 셋 이상인 묶음은 앞의 두 함수로 물었다
+        const jevText = d.jev ? T(d.jev.same ? 'an.jevSame' : 'an.jevDiff', { c: Number(d.jev.confidence).toFixed(2) }) + (d.members.length > 2 ? ` ${T('an.jevFirstTwo')}` : '') : '';
+        const jev = d.jev ? `<span class="an-badge ${d.jev.same ? 'same' : 'diff'}">${esc(jevText)}</span>` : '';
+        parts.push(`<div class="an-item"><div class="an-head"><b>${esc(head)}</b><span>${esc(T('an.tokens', { n: d.tokens }))}</span>${jev}</div>
+          <div class="an-members${d.members.length === 2 ? ' pair' : ''}">${d.members.map(anFn).join('')}</div></div>`);
+      }
+    }
+    if (AN.calls) {
+      for (const c of A.callCycles) { total++; if (anVisible(c.members)) parts.push(anCycle(c, T('an.callCycle', { n: c.members.length }))); }
+    }
+    if (AN.imports) {
+      for (const c of A.importCycles) { total++; if (anVisible(c.members)) parts.push(anCycle(c, T('an.importCycle', { n: c.members.length }))); }
+    }
+    anBox.innerHTML = `<div class="an-head">${esc(T('an.shown', { n: parts.length, total }))}</div>` + (parts.join('') || `<p class="empty">${esc(T('an.none'))}</p>`);
+  }
+
   function showTab(tab) {
-    const isMap = tab === 'map';
-    document.getElementById('tab-focus').setAttribute('aria-pressed', String(!isMap));
+    const isMap = tab === 'map', isAn = tab === 'analysis';
+    document.getElementById('tab-focus').setAttribute('aria-pressed', String(tab === 'focus'));
     document.getElementById('tab-map').setAttribute('aria-pressed', String(isMap));
-    document.getElementById('panel-focus').hidden = isMap;
+    document.getElementById('tab-analysis').setAttribute('aria-pressed', String(isAn));
+    document.getElementById('panel-focus').hidden = tab !== 'focus';
     document.getElementById('panel-map').hidden = !isMap;
-    document.getElementById('focus').hidden = isMap;
-    document.getElementById('focus-bar').hidden = isMap;
+    document.getElementById('panel-analysis').hidden = !isAn;
+    document.getElementById('focus').hidden = tab !== 'focus';
+    document.getElementById('focus-bar').hidden = tab !== 'focus';
     document.getElementById('cy').hidden = !isMap;
-    if (isMap) {
+    anBox.hidden = !isAn;
+    if (isAn) drawAnalysis();
+    else if (isMap) {
       cy.resize();
       if (!mapShown) { mapShown = true; render({ fit: true }); } else refocus();
     } else {
@@ -1497,6 +1652,7 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
   }
   document.getElementById('tab-focus').addEventListener('click', () => showTab('focus'));
   document.getElementById('tab-map').addEventListener('click', () => showTab('map'));
+  document.getElementById('tab-analysis').addEventListener('click', () => showTab('analysis'));
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { fcy.style(fxStyle()); drawFocus(); });
   new MutationObserver(() => { fcy.style(fxStyle()); drawFocus(); drawTree(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   new ResizeObserver(() => { if (!document.getElementById('focus').hidden) { fcy.resize(); fitFocus(); } }).observe(document.getElementById('focus'));

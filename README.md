@@ -7,6 +7,7 @@ Draw the files, functions and call relations of TypeScript / JavaScript repos as
 - **Focus view**: pick a file or function and see who calls it (left) and what it calls (right), one or two hops out, across repos (`useSendMessage → POST /messages → MessagesController.create`).
 - **Full map**: every folder, file and function in boxes, colored by feature.
 - **Interfaces**: frontend `axios` / `fetch` calls matched to NestJS routes, Socket.io emits matched to listeners, and a list of the ones that match nothing.
+- **Analysis**: functions with the same structure (or similar above a threshold) side by side, call cycles (mutual recursion) and import cycles, filterable by feature — optionally checked by Jev.
 - **Open in your editor** (VS Code, Cursor, WebStorm, IntelliJ, Zed), doc-comment tooltips, English / Korean, light / dark.
 
 It runs locally. Your code is never uploaded anywhere (see [Jev](#optional-classify-unmatched-files-with-jev) for the one opt-in exception).
@@ -108,6 +109,8 @@ code-atlas render <graph.json> --out atlas.html
 - `--scope sub/dir`: only that folder plus what it connects to.
 - `--externals`: show calls into npm packages as package nodes.
 - `--allow-draft`: build even if a config still has `"draft": true`.
+- `--no-analysis`: skip the duplicate-function and cycle analysis.
+- `--verify-duplicates`: ask Jev whether the top duplicate candidates do the same job (see below).
 - `--no-editor-links`: leave out your local paths (use this before sharing the HTML file).
 - `--lang en|ko`: message language (defaults to `LANG`). The viewer follows the browser language and has a switch.
 
@@ -131,6 +134,20 @@ npx -y github:frankzoey-lab/code-atlas atlas/atlas.workspace.json --classify
 
 - Sent per file: its path, the names of its functions / components / classes, and the paths and features of the files it depends on. Source code is sent only with `"classify": { "includeSource": true }` — exclude files that may contain secrets first.
 - Settings: `"classify": { "model": "jev-latest", "minConfidence": 0.6 }`. Answers are cached in `.atlas-cache/jev.json` next to the output.
+
+## Analysis
+
+Every build adds an **Analysis** tab:
+
+- **Duplicate functions** — function bodies are compared by structure (local names and literal values are ignored; the functions, properties and components they use are kept). JSX tags and props, object keys, comments and punctuation are handled the same way, so formatting differences do not matter. Identical ones are grouped; others above `minSimilarity` are shown as pairs.
+- **Call cycles** — functions that call each other in a loop (direct self-recursion is left out).
+- **Import cycles** — files that import each other in a loop. Imports that bring in only types are left out (`import type`, `type` specifiers, and names that are only interfaces or type aliases), since they disappear at runtime.
+
+```json
+"analysis": { "minTokens": 50, "minSimilarity": 0.85, "verifyLimit": 100 }
+```
+
+`--verify-duplicates` asks [TypeSafe Jev](https://docs.typesafe.ai/introduction) whether the top `verifyLimit` candidates really do the same job and shows its answer next to each. It sends the two **function bodies** (first 3,000 characters each), names and paths, so only use it on code you may send to that API. Answers share the `.atlas-cache/jev.json` cache.
 
 ## Limits
 

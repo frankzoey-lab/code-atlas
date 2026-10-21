@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import picomatch from 'picomatch';
 import { loadConfig, ResolvedConfig } from './config.js';
+import { finishAnalysis, FunctionPrint, prefixAnalysis, RepoAnalysis } from './analyze/index.js';
 import { extractRepo } from './extract/index.js';
 import { AtlasEdge, AtlasGraph, AtlasNode, Feature, OTHER_FEATURE } from './graph.js';
 import { HttpCall, RepoInterfaces, Route } from './interface/collect.js';
@@ -60,6 +61,8 @@ export interface WorkspaceResult {
   graph: AtlasGraph;
   /** 정적으로 풀지 못해 건너뛴 것 */
   warnings: string[];
+  /** 접두를 붙인 함수 지문 (Jev 중복 확인용) */
+  prints: FunctionPrint[];
 }
 
 export function buildWorkspace(ws: WorkspaceConfig): AtlasGraph {
@@ -73,6 +76,7 @@ export interface ExtractedRepo {
   config: ResolvedConfig;
   graph: AtlasGraph;
   interfaces?: RepoInterfaces;
+  analysis?: RepoAnalysis;
 }
 
 export function buildWorkspaceWithWarnings(ws: WorkspaceConfig): WorkspaceResult {
@@ -81,7 +85,7 @@ export function buildWorkspaceWithWarnings(ws: WorkspaceConfig): WorkspaceResult
 
 /** 각 repo 를 추출한다 (인터페이스 포함). 아직 id 접두 · 병합 전이다 */
 /** configs: 이미 읽은 repo 별 설정 (이름 → 설정). 없으면 여기서 읽는다 */
-export function extractWorkspace(ws: WorkspaceConfig, configs?: Map<string, ResolvedConfig>): ExtractedRepo[] {
+export function extractWorkspace(ws: WorkspaceConfig, configs?: Map<string, ResolvedConfig>, analysis = true): ExtractedRepo[] {
   validateWorkspace(ws);
   return ws.repos.map((repo) => {
     const links = (ws.http ?? []).filter((l) => l.from === repo.name);
@@ -89,8 +93,8 @@ export function extractWorkspace(ws: WorkspaceConfig, configs?: Map<string, Reso
     const isBase = (text: string, rel: string) =>
       links.some((l, i) => fileMatchers[i](rel) && l.base.includes(text));
     const config = configs?.get(repo.name) ?? loadConfig(repo.config);
-    const { graph, interfaces } = extractRepo({ repo: repo.path, config, interfaceBase: isBase });
-    return { name: repo.name, path: repo.path, config, graph, interfaces };
+    const { graph, interfaces, analysis: found } = extractRepo({ repo: repo.path, config, interfaceBase: isBase, analysis });
+    return { name: repo.name, path: repo.path, config, graph, interfaces, analysis: found };
   });
 }
 
@@ -103,6 +107,7 @@ export function assembleWorkspace(ws: WorkspaceConfig, repos: ExtractedRepo[]): 
   const features: Feature[] = [];
   const groups: NonNullable<AtlasGraph['groups']> = [];
   const ifaces = new Map<string, RepoInterfaces>();
+  const analyses: RepoAnalysis[] = [];
 
   for (const repo of repos) {
     const { graph, interfaces } = repo;
@@ -112,6 +117,7 @@ export function assembleWorkspace(ws: WorkspaceConfig, repos: ExtractedRepo[]): 
     }
 
     const p = (id: string) => `${repo.name}:${id}`;
+    if (repo.analysis) analyses.push(prefixAnalysis(repo.analysis, p));
     const featureName = (f: string) => `${repo.name} · ${f}`;
     const repoId = `r:${repo.name}`;
     const tally = new Map<string, number>();
@@ -214,7 +220,12 @@ export function assembleWorkspace(ws: WorkspaceConfig, repos: ExtractedRepo[]): 
     nodes,
     edges,
   };
-  return { graph, warnings };
+  if (analyses.length) {
+    // 지문은 repo 별 minTokens 로 이미 걸렀다. 유사도는 repo 마다 다르면 가장 느슨한 쪽으로 한 번에 비교한다 (FE · BE 사이 중복도 잡는다)
+    const settings = { minSimilarity: Math.min(...repos.map((r) => r.config.analysis.minSimilarity)) };
+    graph.analysis = finishAnalysis(analyses, graph.edges, new Map(graph.nodes.map((n) => [n.id, n])), settings);
+  }
+  return { graph, warnings, prints: analyses.flatMap((a) => a.prints) };
 }
 
 /**

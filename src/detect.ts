@@ -41,7 +41,7 @@ export function detectRepo(name: string, path: string): DetectedRepo {
   const tsconfig = findTsconfig(path);
   const config = resolveConfig({ tsconfig: tsconfig ?? 'tsconfig.json', exclude: DEFAULT_EXCLUDE });
   // process.env.X 로 시작하는 URL 은 항상 base 로 잡히므로, 감지 단계에서는 다른 식을 base 로 보지 않는다
-  const { graph, interfaces } = extractRepo({ repo: path, config, interfaceBase: () => false });
+  const { graph, interfaces } = extractRepo({ repo: path, config, interfaceBase: () => false, analysis: false });
   const ifaces = interfaces ?? { calls: [], routes: [], sockets: [], warnings: [] };
   const role: Role = ifaces.routes.length ? 'backend' : ifaces.calls.length ? 'frontend' : 'library';
   return { name, path, tsconfig, role, interfaces: ifaces, graph, features: draftFeatures(path, graph) };

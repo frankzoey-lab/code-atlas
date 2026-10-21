@@ -5,7 +5,9 @@ import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { classifyGraph, ClassifyStats } from './classify/jev.js';
 import { loadConfig, ResolvedConfig } from './config.js';
-import { extract } from './extract/index.js';
+import { finishAnalysis, FunctionPrint } from './analyze/index.js';
+import { verifyDuplicates } from './analyze/verify.js';
+import { extractRepo } from './extract/index.js';
 import { ensureRepo } from './fetch-repo.js';
 import { findTsconfig } from './extract/project.js';
 import { AtlasGraph } from './graph.js';
@@ -27,6 +29,8 @@ const ARG_OPTIONS = {
     dir: { type: 'string' },
     yes: { type: 'boolean', short: 'y', default: false },
     'allow-draft': { type: 'boolean', default: false },
+    'no-analysis': { type: 'boolean', default: false },
+    'verify-duplicates': { type: 'boolean', default: false },
     'no-fetch': { type: 'boolean', default: false },
     'no-editor-links': { type: 'boolean', default: false },
     help: { type: 'boolean', short: 'h', default: false },
@@ -98,6 +102,33 @@ function reportFeatures(graph: AtlasGraph, config: ResolvedConfig, repo: string)
   for (const feature of summary.empty) console.error(t('cli.warning', { text: t('warn.emptyFeature', { repo, feature }) }));
 }
 
+/** 분석 요약을 알리고, --verify-duplicates 면 상위 후보를 Jev 로 확인한다 */
+async function reportAnalysis(graph: AtlasGraph, prints: FunctionPrint[], configs: ResolvedConfig[], out: string) {
+  const a = graph.analysis;
+  if (!a) {
+    if (values['verify-duplicates']) console.error(t('cli.warning', { text: t('warn.verifyNeedsAnalysis') }));
+    return;
+  }
+  console.error(t('cli.analysis', {
+    dups: a.duplicates.length, identical: a.duplicates.filter((d) => d.similarity === 1).length,
+    calls: a.callCycles.length, imports: a.importCycles.length,
+  }));
+  if (!values['verify-duplicates'] || !a.duplicates.length) return;
+  const started = Date.now();
+  try {
+    // workspace 에서 repo 마다 다르면 모델은 첫 repo, 개수는 가장 큰 값
+    const model = configs[0].classify.model;
+    const limit = Math.max(...configs.map((c) => c.analysis.verifyLimit));
+    const stats = await verifyDuplicates(a, prints, new Map(graph.nodes.map((n) => [n.id, n])), model, limit, {
+      repo: '', cacheDir: join(dirname(out), '.atlas-cache'), log: (line) => console.error(line),
+    });
+    console.error(t('cli.verifySummary', { ...stats, secs: secs(started) }));
+  } catch (e) {
+    console.error(t('cli.jevFailed', { message: (e as Error).message }));
+    process.exit(1);
+  }
+}
+
 /** `./src/x/`, `src\\x` → `src/x` */
 function normalizeScope(scope?: string): string | undefined {
   const s = scope?.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '');
@@ -108,7 +139,11 @@ async function buildRepo(repo: string, out: string): Promise<AtlasGraph> {
   const started = Date.now();
   const config = loadConfig(values.config);
   blockDrafts([[values.config, config]]);
-  const graph = extract({ repo, config, scope: normalizeScope(values.scope), externals: values.externals });
+  const found = extractRepo({ repo, config, scope: normalizeScope(values.scope), externals: values.externals, analysis: !values['no-analysis'] });
+  const graph = found.graph;
+  if (found.analysis) {
+    graph.analysis = finishAnalysis([found.analysis], graph.edges, new Map(graph.nodes.map((n) => [n.id, n])), config.analysis);
+  }
   const { files, symbols, edges } = graph.meta;
   if (graph.meta.scope && files === 0) console.error(t('cli.scopeEmpty', { scope: graph.meta.scope }));
   else if (files === 0) console.error(t('cli.warning', { text: t('warn.noFiles', { repo, tsconfig: config.explicitTsconfig ? config.tsconfig : findTsconfig(repo) ?? '-' }) }));
@@ -116,6 +151,7 @@ async function buildRepo(repo: string, out: string): Promise<AtlasGraph> {
   else if (!graph.meta.scope) reportFeatures(graph, config, repo);
   await classify(graph, config, repo, out);
   console.error(t('cli.extracted', { files, symbols, edges, secs: secs(started) }));
+  await reportAnalysis(graph, found.analysis?.prints ?? [], [config], out);
   return graph;
 }
 
@@ -130,13 +166,13 @@ async function buildWorkspace(file: string, out: string): Promise<AtlasGraph> {
       repo.path = ensureRepo(repo.source.git, repo.source.branch, (line) => console.error(line));
     }
   }
-  const repos = extractWorkspace(ws, configs);
+  const repos = extractWorkspace(ws, configs, !values['no-analysis']);
   for (const r of repos) {
     if (!r.graph.meta.files) console.error(t('cli.warning', { text: t('warn.noFiles', { repo: r.name, tsconfig: r.config.explicitTsconfig ? r.config.tsconfig : findTsconfig(r.path) ?? '-' }) }));
     else reportFeatures(r.graph, r.config, r.name);
   }
   for (const repo of repos) await classify(repo.graph, repo.config, repo.path, out, ` (${repo.name})`);
-  const { graph, warnings } = assembleWorkspace(ws, repos);
+  const { graph, warnings, prints } = assembleWorkspace(ws, repos);
   for (const w of warnings) console.error(t('cli.warning', { text: w }));
   const ifaces = graph.nodes.filter((n) => n.kind === 'endpoint' || n.kind === 'event');
   const unmatched = ifaces.filter((n) => n.unmatched);
@@ -147,6 +183,7 @@ async function buildWorkspace(file: string, out: string): Promise<AtlasGraph> {
     }),
   );
   for (const n of unmatched) console.error(t('cli.unmatched', { name: n.name, note: (n.notes ?? []).map((m) => tm(m)).join(' · ') }));
+  await reportAnalysis(graph, prints, repos.length ? repos.map((r) => r.config) : [loadConfig()], out);
   return graph;
 }
 

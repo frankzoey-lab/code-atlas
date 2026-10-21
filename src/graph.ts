@@ -74,6 +74,8 @@ export interface AtlasGraph {
     roots?: Record<string, string>;
   };
   features: Feature[];
+  /** 중복 함수 · 호출 순환 · import 순환 (--no-analysis 면 없다) */
+  analysis?: Analysis;
   /** 기능 그룹 (범례 색 · 설명). workspace 는 repo 를 함께 싣는다 */
   groups?: (FeatureGroup & { repo?: string })[];
   nodes: AtlasNode[];
@@ -88,3 +90,31 @@ export interface FeatureGroup {
 
 /** 어떤 규칙에도 안 맞는 파일의 기능. 뷰어가 언어에 맞게 이름을 바꿔 보여 준다 */
 export const OTHER_FEATURE: Feature = { name: 'Other', color: '#9aa3b2' };
+
+/**
+ * 같은 일을 하는 것으로 보이는 함수 묶음.
+ * similarity 1 이면 이름 · 값만 다르고 구조가 같은 함수들 (2개 이상), 1 보다 작으면 비슷한 두 함수.
+ */
+export interface DuplicateSet {
+  members: string[];
+  /** 0~1 */
+  similarity: number;
+  /** 가장 작은 함수의 정규화 토큰 수 */
+  tokens: number;
+  /** --verify-duplicates 로 Jev 가 판정한 결과 */
+  jev?: { same: boolean; confidence: number };
+}
+
+/** 서로 부르는(또는 import 하는) 묶음. path 는 대표 순환 하나 (처음과 끝이 같다) */
+export interface Cycle {
+  members: string[];
+  path: string[];
+}
+
+export interface Analysis {
+  duplicates: DuplicateSet[];
+  /** 함수 사이 호출 순환 (상호 재귀). 노드 id */
+  callCycles: Cycle[];
+  /** 파일 사이 import 순환. 파일 노드 id */
+  importCycles: Cycle[];
+}

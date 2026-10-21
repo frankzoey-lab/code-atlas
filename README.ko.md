@@ -7,6 +7,7 @@ TypeScript · JavaScript 저장소의 파일, 함수, 호출 관계를 HTML 지�
 - **포커스 보기**: 파일이나 함수 하나를 고르면 그것을 부르는 쪽(왼쪽)과 그것이 부르는 쪽(오른쪽)을 1 · 2단계까지 보여 줍니다. repo 를 건너 이어집니다(`useSendMessage → POST /messages → MessagesController.create`).
 - **전체 지도**: 폴더 · 파일 · 함수를 상자로 묶어 기능별 색으로 그립니다.
 - **인터페이스**: 프론트엔드의 `axios` · `fetch` 호출을 NestJS 라우트와, Socket.io 보내기를 받는 곳과 잇고, 짝이 없는 것을 따로 모읍니다.
+- **분석**: 구조가 같은(또는 기준 이상 비슷한) 함수를 나란히, 호출 순환(상호 재귀)과 import 순환을 기능별로 걸러 보여 줍니다. 원하면 Jev 로 확인합니다.
 - **에디터로 열기**(VS Code, Cursor, WebStorm, IntelliJ, Zed), 주석 툴팁, 영어 · 한국어, 라이트 · 다크.
 
 모두 로컬에서 돌아가고 코드를 어디에도 올리지 않습니다(직접 켜는 [Jev](#선택-jev-로-기타-파일-분류) 만 예외).
@@ -108,6 +109,8 @@ code-atlas render <graph.json> --out atlas.html
 - `--scope 하위경로`: 그 폴더와 그 폴더에 닿는 것만.
 - `--externals`: npm 패키지 호출을 패키지 노드로 보여 줍니다.
 - `--allow-draft`: 설정에 `"draft": true` 가 남아 있어도 그립니다.
+- `--no-analysis`: 중복 함수 · 순환 분석을 하지 않습니다.
+- `--verify-duplicates`: 상위 중복 후보가 같은 일을 하는지 Jev 로 확인합니다(아래 참고).
 - `--no-editor-links`: 내 로컬 경로를 빼고 만듭니다(HTML 파일을 남과 나누기 전에).
 - `--lang en|ko`: 메시지 언어(기본 `LANG`). 뷰어는 브라우저 언어를 따르고 전환 버튼이 있습니다.
 
@@ -131,6 +134,20 @@ npx -y github:frankzoey-lab/code-atlas atlas/atlas.workspace.json --classify
 
 - 파일마다 보내는 것: 경로, 함수 · 컴포넌트 · 클래스 이름, 의존하는 파일의 경로와 기능. 소스는 `"classify": { "includeSource": true }` 일 때만 보냅니다. 켜기 전에 비밀이 들어 있을 수 있는 파일은 exclude 하세요.
 - 설정: `"classify": { "model": "jev-latest", "minConfidence": 0.6 }`. 응답은 결과 옆 `.atlas-cache/jev.json` 에 캐시합니다.
+
+## 분석
+
+빌드할 때마다 **분석** 탭이 생깁니다.
+
+- **중복 함수**: 함수 본문을 구조로 비교합니다(지역 이름 · 리터럴 값 · 주석 · 구두점은 무시하고, 부르는 함수 · 속성 · JSX 태그와 prop · 객체 키 이름은 봅니다). 똑같은 것은 묶음으로, `minSimilarity` 이상 비슷한 것은 쌍으로 보여 줍니다.
+- **호출 순환**: 함수끼리 돌아가며 부르는 경우(자기 자신만 부르는 직접 재귀는 뺍니다).
+- **import 순환**: 파일끼리 돌아가며 import 하는 경우. 타입만 가져오는 import(`import type`, `type` 표시, interface · type alias 뿐인 이름)는 실행할 때 사라지므로 뺍니다.
+
+```json
+"analysis": { "minTokens": 50, "minSimilarity": 0.85, "verifyLimit": 100 }
+```
+
+`--verify-duplicates` 를 주면 상위 `verifyLimit` 개 후보가 정말 같은 일을 하는지 [TypeSafe Jev](https://docs.typesafe.ai/introduction) 에 물어 각 항목 옆에 보여 줍니다. 두 함수의 **본문**(각 앞 3,000자) · 이름 · 경로를 보내므로, 그 API 로 보내도 되는 코드에만 쓰세요. 응답은 `.atlas-cache/jev.json` 캐시를 같이 씁니다.
 
 ## 한계
 

@@ -33,6 +33,17 @@ export interface AtlasConfig {
   groups?: FeatureGroup[];
   features?: FeatureRule[];
   classify?: ClassifyConfig;
+  analysis?: AnalysisConfig;
+}
+
+/** 중복 함수 찾기 기준 */
+export interface AnalysisConfig {
+  /** 정규화 토큰이 이보다 적은 함수는 비교하지 않는다 (기본 50) */
+  minTokens?: number;
+  /** 이 이상 비슷하면 중복 후보 (0~1, 기본 0.85) */
+  minSimilarity?: number;
+  /** --verify-duplicates 로 Jev 에 물어볼 최대 쌍 수 (기본 100) */
+  verifyLimit?: number;
 }
 
 export interface ResolvedConfig {
@@ -45,6 +56,7 @@ export interface ResolvedConfig {
   features: Feature[];
   featureRules: FeatureRule[];
   classify: Required<ClassifyConfig>;
+  analysis: Required<AnalysisConfig>;
   isExcluded(relPath: string): boolean;
   featureOf(relPath: string): string;
 }
@@ -159,6 +171,11 @@ export function resolveConfig(raw: AtlasConfig): ResolvedConfig {
       model: raw.classify?.model ?? 'jev-latest',
       minConfidence: raw.classify?.minConfidence ?? 0.6,
       includeSource: raw.classify?.includeSource ?? false,
+    },
+    analysis: {
+      minTokens: raw.analysis?.minTokens ?? 50,
+      minSimilarity: raw.analysis?.minSimilarity ?? 0.85,
+      verifyLimit: raw.analysis?.verifyLimit ?? 100,
     },
     isExcluded: (p) => excluded(p),
     // 먼저 적은 규칙이 이긴다 (같은 이름으로 나눠 적은 규칙도 적은 순서대로 본다)

@@ -82,12 +82,16 @@ Every run checks GitHub for the latest commit, so it needs a network connection;
 
    For a single repo without init: `npx -y github:frankzoey-lab/code-atlas <path> --out atlas.html --open` (it has no feature rules unless you pass `--config`).
 
-5. **Report back.** Tell the user where the HTML is, how to use it (Focus tab: pick a file or function in the tree; Full map tab: turn features on), and summarize the `Unmatched:` lines — calls with no matching route and socket events that are only emitted or only listened to are often real bugs or dead code.
+5. **Report back.** Tell the user where the HTML is, how to use it (Focus tab: pick a file or function in the tree; Full map tab: turn features on; Analysis tab: duplicate functions and cycles), and summarize:
+   - the `Unmatched:` lines — calls with no matching route and socket events that are only emitted or only listened to are often real bugs or dead code;
+   - the `Analysis:` line — duplicate function sets (identical structure, or similar above a threshold), call cycles (mutual recursion) and import cycles. Name the few largest duplicates and every cycle; say that duplicates are structural candidates (they may be intentional), and that import cycles can break initialization order or bundling.
 
 ## Options worth knowing
 
 - `--scope sub/dir`: only that folder plus what connects to it (for very large repos).
 - `--no-editor-links`: omit local absolute paths — use it when the HTML will be shared.
+- `--verify-duplicates`: ask TypeSafe Jev whether the top duplicate candidates really do the same job (`analysis.verifyLimit`, default 100 sets). It sends the **function bodies** to an external API — only use it when the user asks for it and `TYPESAFE_API_KEY` is already set.
+- `--no-analysis`: skip the duplicate and cycle analysis.
 - `--classify`: classify files that match no feature rule with TypeSafe Jev. Only use it when the user asks for it and `TYPESAFE_API_KEY` is already set; it sends file paths and symbol names (and source only with `classify.includeSource`) to an external API. Never ask the user to paste the key into the chat.
 - `--lang ko` for Korean messages.
 

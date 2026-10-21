@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Analysis tab: duplicate functions (structural fingerprints; identical sets and similar pairs, across repos), call cycles (mutual recursion) and import cycles, filterable by kind, similarity, feature and name. `--verify-duplicates` asks Jev whether the top candidates do the same job (sends function bodies). `--no-analysis` turns it off; settings under `analysis`.
 - Feature rules with the same name are merged into one feature (first group / color / description wins; matching order is unchanged).
 - The build prints each repo's feature distribution (`Features of <repo> (N files): [Group n (%): Feature n, …], Other n (%)`) so the rules can be checked without opening the map.
 - SKILL.md: config format, glob syntax (picomatch, `[[]` for brackets), where to find feature boundaries (doc front matter `paths:`), targets for features, groups and Other, and a build → check → repeat loop.
