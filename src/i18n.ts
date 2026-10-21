@@ -26,6 +26,8 @@ Options:
   --open        Open the result in your browser
   --classify    Classify files that match no feature rule with TypeSafe Jev (needs TYPESAFE_API_KEY)
   --allow-draft Build even if a config is still an init draft ("draft": true)
+  --no-analysis Skip the duplicate-function and cycle analysis
+  --verify-duplicates  Ask TypeSafe Jev whether the top duplicate candidates do the same job (sends function bodies; needs TYPESAFE_API_KEY)
   --lang en|ko  Message language (default: from LANG)
   --help, --version`,
   'cli.extracted': 'Extracted: {files} files, {symbols} symbols, {edges} edges ({secs}s)',
@@ -33,6 +35,8 @@ Options:
   'cli.workspaceExtracted':
     'Extracted {repos}: {files} files, {symbols} symbols, {edges} edges, {ifaces} interfaces ({unmatched} unmatched) ({secs}s)',
   'cli.features': '  Features of {repo} ({files} files): {list}, Other {other} ({otherPct}); largest feature {largest}',
+  'cli.analysis': 'Analysis: {dups} duplicate sets ({identical} identical), {calls} call cycles, {imports} import cycles',
+  'cli.verifySummary': 'Jev: {same} of {asked} duplicate sets confirmed as the same job, failed {failed}, cached {cacheHits}, input tokens {inputTokens} ({secs}s)',
   'cli.warning': '  Warning: {text}',
   'cli.unmatched': '  Unmatched: {name} — {note}',
   'cli.wrote': '→ {path} ({mb} MB)',
@@ -45,9 +49,10 @@ Options:
   'jev.tooManyOptions': 'A Jev Choice allows at most {max} options, but there are {n} features.',
   'jev.badAnswer': 'Unknown answer (choice: {choice})',
   'jev.fileFailed': '  Jev failed for {path} — {message}',
+  'jev.pairFailed': '  Jev duplicate check failed for {pair} — {message}',
   'jev.badCache': '  Cannot read the Jev cache, starting fresh: {path}',
   'jev.bodyUnreadable': 'Could not read the response body: {message}',
-  'jev.badShape': 'Unexpected response shape (no answers.feature)',
+  'jev.badShape': 'Unexpected response shape (no answers.{question})',
   'jev.rejected': 'The TypeSafe API rejected the request ({status}){detail}',
   'jev.http': 'HTTP {status}',
   'jev.connectionFailed': 'connection failed',
@@ -89,6 +94,7 @@ Options:
   'git.credentials': 'Do not put a password or token in the git URL. Use ssh or a git credential helper instead.',
   'cli.error': 'Error: {message}',
   'cli.openFailed': 'Could not open a browser ({message}). Open the file yourself: {path}',
+  'warn.verifyNeedsAnalysis': '--verify-duplicates does nothing with --no-analysis.',
   'warn.noFiles': '{repo}: no source files found (tsconfig {tsconfig}). Check the tsconfig or the exclude rules.',
   'role.frontend': 'frontend',
   'role.backend': 'backend',
@@ -115,6 +121,8 @@ const ko: Record<MessageCode, string> = {
   --open        만든 뒤 브라우저로 엽니다
   --classify    기능 규칙에 안 맞는 파일을 TypeSafe Jev 로 분류합니다 (TYPESAFE_API_KEY 필요)
   --allow-draft 설정이 아직 init 초안("draft": true)이어도 그립니다
+  --no-analysis 중복 함수 · 순환 분석을 하지 않습니다
+  --verify-duplicates  상위 중복 후보가 같은 일을 하는지 TypeSafe Jev 로 확인합니다 (함수 본문을 보냄, TYPESAFE_API_KEY 필요)
   --lang en|ko  메시지 언어 (기본: LANG 환경 변수)
   --help, --version`,
   'cli.extracted': '추출: 파일 {files}, 심볼 {symbols}, 간선 {edges} ({secs}s)',
@@ -122,6 +130,8 @@ const ko: Record<MessageCode, string> = {
   'cli.workspaceExtracted':
     '추출: {repos} — 파일 {files}, 심볼 {symbols}, 간선 {edges}, 인터페이스 {ifaces}개 (짝 없음 {unmatched}) ({secs}s)',
   'cli.features': '  {repo} 기능 (파일 {files}개): {list}, 기타 {other}개 ({otherPct}); 가장 큰 기능 {largest}',
+  'cli.analysis': '분석: 중복 {dups}묶음 (똑같음 {identical}), 호출 순환 {calls}개, import 순환 {imports}개',
+  'cli.verifySummary': 'Jev: 중복 {asked}묶음 중 {same}묶음이 같은 일을 한다고 판정, 실패 {failed}, 캐시 {cacheHits}, 입력 토큰 {inputTokens} ({secs}초)',
   'cli.warning': '  경고: {text}',
   'cli.unmatched': '  짝 없음: {name} — {note}',
   'cli.wrote': '→ {path} ({mb} MB)',
@@ -134,9 +144,10 @@ const ko: Record<MessageCode, string> = {
   'jev.tooManyOptions': 'Jev Choice 옵션은 최대 {max}개입니다. 기능이 {n}개입니다.',
   'jev.badAnswer': '알 수 없는 응답 (choice: {choice})',
   'jev.fileFailed': '  Jev 분류 실패: {path} — {message}',
+  'jev.pairFailed': '  Jev 중복 확인 실패 {pair} — {message}',
   'jev.badCache': '  Jev 캐시를 읽을 수 없어 새로 시작합니다: {path}',
   'jev.bodyUnreadable': '응답 본문을 읽지 못했습니다: {message}',
-  'jev.badShape': '응답 형식이 예상과 다릅니다 (answers.feature 없음)',
+  'jev.badShape': '응답 형식이 예상과 다릅니다 (answers.{question} 없음)',
   'jev.rejected': 'TypeSafe API 가 요청을 거절했습니다 ({status}){detail}',
   'jev.http': 'HTTP {status}',
   'jev.connectionFailed': '연결 실패',
@@ -178,6 +189,7 @@ const ko: Record<MessageCode, string> = {
   'git.credentials': 'git 주소에 비밀번호나 토큰을 넣지 마세요. ssh 나 git credential helper 를 쓰세요.',
   'cli.error': '오류: {message}',
   'cli.openFailed': '브라우저를 열 수 없습니다 ({message}). 직접 여세요: {path}',
+  'warn.verifyNeedsAnalysis': '--no-analysis 와 함께 쓰면 --verify-duplicates 는 아무것도 하지 않습니다.',
   'warn.noFiles': '{repo}: 소스 파일을 하나도 찾지 못했습니다 (tsconfig {tsconfig}). tsconfig 나 exclude 규칙을 확인하세요.',
   'role.frontend': '프론트엔드',
   'role.backend': '백엔드',

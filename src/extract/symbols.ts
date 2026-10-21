@@ -15,13 +15,15 @@ export interface SymbolIndex {
   pending: Array<() => boolean>;
   /** 대상 파일 절대 경로 → 저장소 상대 경로 */
   files: Map<string, string>;
+  /** 함수 · 메서드 심볼 id → 본문을 가진 노드 (분석: 중복 함수 지문) */
+  bodies: Map<string, Node>;
 }
 
 export const fileId = (rel: string) => `f:${rel}`;
 export const dirId = (rel: string) => `d:${rel}`;
 
 export function newSymbolIndex(): SymbolIndex {
-  return { nodes: new Map(), ownerOf: new Map(), aliasOf: new Map(), pending: [], files: new Map() };
+  return { nodes: new Map(), ownerOf: new Map(), aliasOf: new Map(), pending: [], files: new Map(), bodies: new Map() };
 }
 
 /** 파일 최상위 함수 · 화살표 함수 · 컴포넌트 · 훅 · 클래스 · 메서드 · default export 를 모은다 */
@@ -60,7 +62,7 @@ export function collectSymbols(
 
   for (const fn of file.getFunctions()) {
     const name = fn.getName() ?? 'default';
-    add(fn, name, classify(name, fn, isJsxFile), fn.isExported());
+    index.bodies.set(add(fn, name, classify(name, fn, isJsxFile), fn.isExported()), fn);
   }
 
   for (const statement of file.getVariableStatements()) {
@@ -80,7 +82,7 @@ export function collectSymbols(
         continue;
       }
       const name = decl.getName();
-      add(decl, name, classify(name, body, isJsxFile), statement.isExported(), undefined, statement);
+      index.bodies.set(add(decl, name, classify(name, body, isJsxFile), statement.isExported(), undefined, statement), body);
     }
   }
 
@@ -88,12 +90,11 @@ export function collectSymbols(
     const name = cls.getName() ?? 'default';
     const classId = add(cls, name, 'class', cls.isExported());
     for (const method of cls.getMethods()) {
-      add(method, method.getName(), 'method', cls.isExported(), classId);
+      index.bodies.set(add(method, method.getName(), 'method', cls.isExported(), classId), method);
     }
     for (const prop of cls.getProperties()) {
-      if (functionLikeOf(prop.getInitializer())) {
-        add(prop, prop.getName(), 'method', cls.isExported(), classId);
-      }
+      const body = functionLikeOf(prop.getInitializer());
+      if (body) index.bodies.set(add(prop, prop.getName(), 'method', cls.isExported(), classId), body);
     }
   }
 
@@ -105,7 +106,7 @@ export function collectSymbols(
     if (body) {
       // export default memo(function Button() {}) 처럼 이름이 있으면 그 이름, 없으면 파일 이름
       const name = (Node.isFunctionExpression(body) && body.getName()) || defaultName(rel);
-      add(assignment, name, classify(name, body, isJsxFile), true);
+      index.bodies.set(add(assignment, name, classify(name, body, isJsxFile), true), body);
       continue;
     }
     const target = innerIdentifier(expr);

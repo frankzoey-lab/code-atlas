@@ -1,6 +1,7 @@
 import { basename, resolve } from 'node:path';
 import { ResolvedConfig } from '../config.js';
 import { AtlasEdge, AtlasGraph, AtlasNode, EdgeKind, Feature } from '../graph.js';
+import { analyzeRepo, finishAnalysis, RepoAnalysis } from '../analyze/index.js';
 import { collectInterfaces, RepoInterfaces } from '../interface/collect.js';
 import { collectEdges } from './calls.js';
 import { findTsconfig, loadProject, relPathOf } from './project.js';
@@ -14,17 +15,25 @@ export interface ExtractOptions {
   externals?: boolean;
   /** 주면 HTTP 호출 · 라우트 · socket 이벤트도 모은다. URL 맨 앞 식이 백엔드 주소인지 판정한다 */
   interfaceBase?: (text: string, rel: string) => boolean;
+  /** false 면 중복 · 순환 분석을 하지 않는다 */
+  analysis?: boolean;
 }
 
 const EXTERNAL_FEATURE: Feature = { name: 'External packages', color: '#c9ced8' };
 
+/** 그래프만 (분석은 이 repo 안에서 마친다. Jev 확인이 필요하면 extractRepo 를 쓴다) */
 export function extract(options: ExtractOptions): AtlasGraph {
-  return extractRepo(options).graph;
+  const { graph, analysis } = extractRepo(options);
+  if (analysis) {
+    graph.analysis = finishAnalysis([analysis], graph.edges, new Map(graph.nodes.map((n) => [n.id, n])), options.config.analysis);
+  }
+  return graph;
 }
 
-export function extractRepo({ repo, config, scope, externals, interfaceBase }: ExtractOptions): {
+export function extractRepo({ repo, config, scope, externals, interfaceBase, analysis = true }: ExtractOptions): {
   graph: AtlasGraph;
   interfaces?: RepoInterfaces;
+  analysis?: RepoAnalysis;
 } {
   // 설정에 적지 않았으면 tsconfig.json → tsconfig.app.json … 순으로 찾는다
   const project = loadProject(repo, config.explicitTsconfig ? config.tsconfig : findTsconfig(repo) ?? config.tsconfig);
@@ -77,6 +86,8 @@ export function extractRepo({ repo, config, scope, externals, interfaceBase }: E
   const interfaces = interfaceBase ? collectInterfaces(files, index, interfaceBase) : undefined;
 
   let edges = dropImportsCoveredByCalls([...counts.values()], all);
+  // 함수 본문은 ts-morph 프로젝트가 살아 있는 여기서만 읽을 수 있다
+  let found = analysis ? analyzeRepo(files, index, all, edges, config.analysis) : undefined;
 
   // 디렉터리 노드
   for (const { rel } of files) {
@@ -109,6 +120,18 @@ export function extractRepo({ repo, config, scope, externals, interfaceBase }: E
       }
     }
     nodes = nodes.filter((n) => keep.has(n.id));
+    if (found) {
+      // scope 안(경계 노드 제외)에 걸친 결과만 남긴다
+      const inside = new Set(nodes.filter((n) => !n.boundary).map((n) => n.id));
+      const touches = (c: { members: string[] }) => c.members.some((m) => inside.has(m));
+      // 지문은 그대로 두어 범위 밖 함수와도 비교하고, 결과는 범위 안에 걸친 것만 남긴다 (순환과 같은 기준)
+      found = {
+        prints: found.prints,
+        callCycles: found.callCycles.filter(touches),
+        importCycles: found.importCycles.filter(touches),
+        scope: inside,
+      };
+    }
   }
 
   const features = [...config.features];
@@ -129,7 +152,7 @@ export function extractRepo({ repo, config, scope, externals, interfaceBase }: E
     nodes,
     edges,
   };
-  return { graph, interfaces };
+  return { graph, interfaces, analysis: found };
 }
 
 /** 같은 파일 안 어딘가에서 이미 호출 · 렌더하는 대상이면 import 간선은 중복이라 뺀다 */
