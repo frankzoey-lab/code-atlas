@@ -17,10 +17,16 @@ Every run checks GitHub for the latest commit, so it needs a network connection;
 
 1. **Collect the repos.** Ask which repos to include if the user did not say. Each can be a local path or a git URL (`gh:owner/repo`, `https://…`, `git@…`, optional `#branch`). Never put tokens in URLs. The current directory is a good default for a single repo.
 
+   **Then always ask about TypeSafe Jev — two separate yes/no questions, default no**, explaining what leaves the machine:
+   - *Classify files that match no feature rule with Jev?* Sends file paths, symbol names and the paths of the files they depend on.
+   - *Check duplicate-function candidates with Jev?* Sends the **bodies** of the two functions (first 3,000 characters each).
+
+   For each yes, add the matching flag to `init` below (`--classify`, `--verify-duplicates`); init saves the choice in `atlas.workspace.json` (`"jev"`), so every later build uses it without flags. Jev needs `TYPESAFE_API_KEY` in the environment: check it with `test -n "$TYPESAFE_API_KEY" && echo set` (never print the value). If it is missing, tell the user to create a key at console.typesafe.ai and export it themselves — never ask them to paste it into the chat.
+
 2. **Draft a workspace.**
 
    ```bash
-   npx -y github:frankzoey-lab/code-atlas init --yes --lang en --dir atlas --repo <repo1> --repo <repo2>
+   npx -y github:frankzoey-lab/code-atlas init --yes --lang en --dir atlas --repo <repo1> --repo <repo2> [--classify] [--verify-duplicates]
    ```
 
    Read the printed summary: each repo's role (frontend / backend / library), the detected HTTP links (`from → to`, the env base and how many calls matched), Socket.io links, and per repo its file count, its config file and the drafted feature names (`web (316 files) → web.atlas.json: 3 draft feature rules (…)`). Always pass `--lang en` so the output matches the formats quoted here.
@@ -90,9 +96,9 @@ Every run checks GitHub for the latest commit, so it needs a network connection;
 
 - `--scope sub/dir`: only that folder plus what connects to it (for very large repos).
 - `--no-editor-links`: omit local absolute paths — use it when the HTML will be shared.
-- `--verify-duplicates`: ask TypeSafe Jev whether the top duplicate candidates really do the same job (`analysis.verifyLimit`, default 100 sets). It sends the **function bodies** to an external API — only use it when the user asks for it and `TYPESAFE_API_KEY` is already set.
+- `--verify-duplicates`: ask TypeSafe Jev whether the top duplicate candidates really do the same job (`analysis.verifyLimit`, default 100 sets). It sends the **function bodies** to an external API — only use it when the user said yes in step 1 (or asks later) and `TYPESAFE_API_KEY` is already set.
 - `--no-analysis`: skip the duplicate and cycle analysis.
-- `--classify`: classify files that match no feature rule with TypeSafe Jev. Only use it when the user asks for it and `TYPESAFE_API_KEY` is already set; it sends file paths and symbol names (and source only with `classify.includeSource`) to an external API. Never ask the user to paste the key into the chat.
+- `--classify`: classify files that match no feature rule with TypeSafe Jev. Only use it when the user said yes in step 1 (or asks later) and `TYPESAFE_API_KEY` is already set; it sends file paths and symbol names (and source only with `classify.includeSource`) to an external API. Never ask the user to paste the key into the chat.
 - `--lang ko` for Korean messages.
 
 ## Limits to mention when relevant

@@ -4,7 +4,7 @@ import { createInterface } from 'node:readline/promises';
 import { detectLinks, detectRepo, DetectedRepo, repoConfig } from './detect.js';
 import { ensureRepo, parseRepoSpec } from './fetch-repo.js';
 import { t } from './i18n.js';
-import { WorkspaceConfig, WorkspaceRepo } from './workspace.js';
+import { JevSettings, WorkspaceConfig, WorkspaceRepo } from './workspace.js';
 
 export interface InitOptions {
   /** 묻지 않고 쓸 repo 들 (경로 · git 주소[#브랜치]) */
@@ -13,6 +13,8 @@ export interface InitOptions {
   dir: string;
   /** 묻지 않고 기본값으로 진행 */
   yes: boolean;
+  /** Jev 사용 (--classify · --verify-duplicates). 대화형이면 이 값을 기본으로 묻는다 */
+  jev?: JevSettings;
   log?: (line: string) => void;
   /** 테스트용 입력 */
   ask?: (question: string) => Promise<string>;
@@ -89,6 +91,18 @@ export async function runInit(options: InitOptions): Promise<InitResult | undefi
       log(t('init.features', { name: r.name, files: r.graph.meta.files, count: r.features.length, names: r.features.map((f) => f.name).join(', ') || '-' }));
     }
 
+    // Jev 는 코드 일부를 외부 API 로 보내므로 처음에 따로 묻고 workspace 에 남긴다
+    const jev: Required<JevSettings> = { classify: !!options.jev?.classify, verifyDuplicates: !!options.jev?.verifyDuplicates };
+    if (!options.yes) {
+      log(t('init.jevIntro'));
+      jev.classify = await yesNo(ask, t('init.askClassify'), jev.classify);
+      jev.verifyDuplicates = await yesNo(ask, t('init.askVerify'), jev.verifyDuplicates);
+    }
+    if (jev.classify || jev.verifyDuplicates) {
+      log(t('init.jevOn', { what: [jev.classify && '--classify', jev.verifyDuplicates && '--verify-duplicates'].filter(Boolean).join(', ') }));
+      if (!process.env.TYPESAFE_API_KEY) log(t('init.jevNoKey'));
+    }
+
     if (!options.yes) {
       const answer = (await ask(t('init.confirm', { dir: relative(process.cwd(), outDir) || '.' }))).trim().toLowerCase();
       if (answer && !answer.startsWith('y')) {
@@ -111,6 +125,7 @@ export async function runInit(options: InitOptions): Promise<InitResult | undefi
       }),
       ...(links.http.length ? { http: links.http } : {}),
       ...(links.socket.length ? { socket: links.socket } : {}),
+      jev,
     };
     const workspacePath = join(outDir, 'atlas.workspace.json');
     writeFileSync(workspacePath, `${JSON.stringify(workspace, null, 2)}\n`);
@@ -125,6 +140,12 @@ export async function runInit(options: InitOptions): Promise<InitResult | undefi
   } finally {
     rl?.close();
   }
+}
+
+/** [y/N] 질문. 빈 답이면 기본값 */
+async function yesNo(ask: (q: string) => Promise<string>, question: string, fallback: boolean): Promise<boolean> {
+  const answer = (await ask(`${question} [${fallback ? 'Y/n' : 'y/N'}] `)).trim().toLowerCase();
+  return answer ? answer.startsWith('y') : fallback;
 }
 
 function uniqueName(name: string, used: Set<string>): string {

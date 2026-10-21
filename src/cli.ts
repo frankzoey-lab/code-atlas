@@ -49,6 +49,8 @@ try {
 const { positionals, values } = parsed;
 
 if (values.lang === 'en' || values.lang === 'ko') setLang(values.lang as Lang);
+/** Jev 사용: 플래그, 또는 workspace 의 jev 설정 (init 에서 물어 저장) */
+const jev = { classify: values.classify, verify: values['verify-duplicates'] };
 const secs = (started: number) => ((Date.now() - started) / 1000).toFixed(1);
 
 if (values.version) {
@@ -63,7 +65,7 @@ if (values.help || !positionals.length) {
 
 /** --classify 일 때 경로 규칙에 안 맞은 파일을 Jev 로 분류한다 */
 async function classify(graph: AtlasGraph, config: ResolvedConfig, repo: string, out: string, label = '') {
-  if (!values.classify) return;
+  if (!jev.classify) return;
   const started = Date.now();
   let stats: ClassifyStats;
   try {
@@ -106,14 +108,14 @@ function reportFeatures(graph: AtlasGraph, config: ResolvedConfig, repo: string)
 async function reportAnalysis(graph: AtlasGraph, prints: FunctionPrint[], configs: ResolvedConfig[], out: string) {
   const a = graph.analysis;
   if (!a) {
-    if (values['verify-duplicates']) console.error(t('cli.warning', { text: t('warn.verifyNeedsAnalysis') }));
+    if (jev.verify) console.error(t('cli.warning', { text: t('warn.verifyNeedsAnalysis') }));
     return;
   }
   console.error(t('cli.analysis', {
     dups: a.duplicates.length, identical: a.duplicates.filter((d) => d.similarity === 1).length,
     calls: a.callCycles.length, imports: a.importCycles.length,
   }));
-  if (!values['verify-duplicates'] || !a.duplicates.length) return;
+  if (!jev.verify || !a.duplicates.length) return;
   const started = Date.now();
   try {
     // workspace 에서 repo 마다 다르면 모델은 첫 repo, 개수는 가장 큰 값
@@ -158,6 +160,8 @@ async function buildRepo(repo: string, out: string): Promise<AtlasGraph> {
 async function buildWorkspace(file: string, out: string): Promise<AtlasGraph> {
   const started = Date.now();
   const ws = loadWorkspace(file);
+  jev.classify ||= !!ws.jev?.classify;
+  jev.verify ||= !!ws.jev?.verifyDuplicates;
   const configs = new Map(ws.repos.map((r) => [r.name, loadConfig(r.config)]));
   blockDrafts(ws.repos.map((r) => [r.config, configs.get(r.name)!]));
   // git 에서 받는 repo 는 실행할 때마다 최신으로 맞춘다 (--no-fetch 면 캐시 그대로)
@@ -215,7 +219,10 @@ async function main() {
 
   switch (command) {
     case 'init': {
-      const result = await runInit({ repos: values.repo ?? [], dir: values.dir ?? input ?? 'atlas', yes: values.yes });
+      const result = await runInit({
+        repos: values.repo ?? [], dir: values.dir ?? input ?? 'atlas', yes: values.yes,
+        jev: { classify: values.classify, verifyDuplicates: values['verify-duplicates'] },
+      });
       process.exit(result ? 0 : 1);
       break;
     }

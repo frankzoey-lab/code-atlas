@@ -71,6 +71,18 @@ describe('init --yes', () => {
     expect(g.meta.roots?.fe).toBe(join(ws, 'fe'));
   });
 
+  it('Jev 사용을 따로 묻고 workspace 에 저장한다 (기본은 아니오)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'atlas-init-'));
+    const answers = ['', '', 'y', '', ''];
+    const asked: string[] = [];
+    await runInit({ repos: [join(ws, 'fe')], dir, yes: false, log: () => {}, ask: async (q) => { asked.push(q); return answers.shift() ?? ''; } });
+    expect(asked.some((q) => q.includes('[y/N]'))).toBe(true);
+    expect(JSON.parse(readFileSync(join(dir, 'atlas.workspace.json'), 'utf8')).jev).toEqual({ classify: true, verifyDuplicates: false });
+    const quiet = mkdtempSync(join(tmpdir(), 'atlas-init-'));
+    await runInit({ repos: [join(ws, 'fe')], dir: quiet, yes: true, log: () => {}, jev: { verifyDuplicates: true } });
+    expect(JSON.parse(readFileSync(join(quiet, 'atlas.workspace.json'), 'utf8')).jev).toEqual({ classify: false, verifyDuplicates: true });
+  });
+
   it('없는 로컬 경로는 건너뛰고 알린다', async () => {
     const dir = join(mkdtempSync(join(tmpdir(), 'atlas-init-')), 'out');
     const lines: string[] = [];
