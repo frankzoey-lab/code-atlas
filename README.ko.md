@@ -50,6 +50,7 @@ npx -y github:frankzoey-lab/code-atlas init --repo ./web --repo git@github.com:a
 
 - 로컬 경로는 그대로 씁니다. git 주소(`gh:owner/repo`, `https://…`, `git@…`, 뒤에 `#브랜치`)는 `~/.cache/code-atlas` 에 얕게 받아 두고, 지도를 만들 때마다 최신으로 맞춥니다(`--no-fetch` 로 끔). 비공개 repo 는 내 git 인증(ssh 키 · credential helper)을 그대로 씁니다. 비밀번호 · 토큰이 든 주소는 받지 않습니다. ssh 는 호스트 키가 이미 등록돼 있어야 합니다(확인 질문을 띄우지 않습니다).
 - 어느 repo 가 프론트엔드 · 백엔드인지 찾고, `process.env.*` API 주소마다 라우트가 가장 많이 맞는 백엔드와 잇고, Socket.io 클라이언트 · 서버를 잇고, `docs/` 폴더나 소스 폴더로 기능 규칙 초안을 만듭니다.
+- [Jev](#선택-jev-로-기타-파일-분류) 로 분류할지, 중복을 확인할지 따로 묻고(기본은 아니오, `--yes` 일 때는 `--classify` · `--verify-duplicates` 로 켬) workspace 에 `"jev"` 로 저장합니다. 이후 빌드는 플래그 없이 따릅니다.
 - `atlas/atlas.workspace.json` 과 repo 마다 `atlas/<repo>.atlas.json` 을 씁니다. 기능 규칙은 폴더 이름으로 만든 초안이라 `"draft": true` 가 붙어 있고, 이 줄이 남아 있으면 지도를 만들지 않습니다. [Claude Code 플러그인](#claude-code-플러그인)으로(또는 직접) 다듬은 뒤 지우세요. 초안 그대로 그리려면 `--allow-draft`.
 
 ## 설정

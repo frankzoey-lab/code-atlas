@@ -50,6 +50,7 @@ npx -y github:frankzoey-lab/code-atlas init --repo ./web --repo git@github.com:a
 
 - Local paths are used as they are. Git URLs (`gh:owner/repo`, `https://…`, `git@…`, optional `#branch`) are shallow-cloned into `~/.cache/code-atlas` and refreshed on every build (`--no-fetch` to skip). Private repos use your own git credentials (ssh keys or a credential helper — URLs with a password or token in them are refused). For ssh, make sure the host key is already trusted, since prompts are not shown.
 - It detects which repos are frontends and backends, links each `process.env.*` API base to the backend whose routes it matches, links Socket.io client and server, and drafts feature rules from `docs/` folders or your source folders.
+- It asks whether to use [Jev](#optional-classify-unmatched-files-with-jev) for classification and for checking duplicates (default no; `--classify` / `--verify-duplicates` answer yes with `--yes`) and saves the answer as `"jev"` in the workspace, so builds use it without flags.
 - It writes `atlas/atlas.workspace.json` and one `atlas/<repo>.atlas.json` per repo. The feature rules are only a folder-name draft, marked `"draft": true`, and the build refuses to run until that line is gone. Refine them with the [Claude Code plugin](#claude-code-plugin) (or by hand), then delete it. `--allow-draft` builds from the draft anyway.
 
 ## Configuration

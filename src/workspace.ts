@@ -24,6 +24,15 @@ export interface WorkspaceConfig {
   /** from repo 의 HTTP 호출 중 URL 맨 앞이 base 인 것을 to repo 의 라우트와 잇는다. to 가 없으면 바깥 서비스(label) */
   http?: { from: string; base: string[]; files?: string[]; to?: string; label?: string }[];
   socket?: { client: string; server: string }[];
+  /** TypeSafe Jev 사용 (init 에서 묻는다). 빌드 때 --classify · --verify-duplicates 를 준 것과 같다 */
+  jev?: JevSettings;
+}
+
+export interface JevSettings {
+  /** 기능 규칙에 안 맞는 파일 분류 (경로 · 심볼 이름 전송) */
+  classify?: boolean;
+  /** 중복 후보가 같은 일을 하는지 확인 (함수 본문 전송) */
+  verifyDuplicates?: boolean;
 }
 
 const INTERFACE_FEATURE: Feature = { name: 'Interfaces', color: '#e8590c' };

@@ -82,6 +82,11 @@ Options:
   'init.httpExternal': '  HTTP: {from} calls {base} ({count} calls) — no repo matched, shown as external',
   'init.socketLink': '  Socket.io: {client} ↔ {server}',
   'init.features': '  {name} ({files} files) → {name}.atlas.json: {count} draft feature rules ({names})',
+  'init.jevIntro': 'Optional: TypeSafe Jev (an external classification API, needs TYPESAFE_API_KEY). Nothing is sent unless you turn it on.',
+  'init.askClassify': '  Classify files that match no feature rule with Jev? Sends file paths, symbol names and dependency paths.',
+  'init.askVerify': '  Check duplicate-function candidates with Jev? Sends the bodies of the two functions.',
+  'init.jevOn': '  Jev on: {what} (saved in the workspace; every build uses it)',
+  'init.jevNoKey': '  TYPESAFE_API_KEY is not set. Create a key at console.typesafe.ai and export it before building.',
   'init.confirm': 'Write the workspace to {dir}? [Y/n] ',
   'init.done':
     'Wrote {files}.\nThe feature rules are only a draft ("draft": true), so the map is not built yet.\nRefine them with the code-atlas skill in Claude Code (ask it to "map these repos"), or edit {dir}/*.atlas.json yourself and delete "draft": true. Then build, check the "Features of …" lines and warnings, and repeat until they look right:\n  npx -y github:frankzoey-lab/code-atlas {workspace}\nAdd --open to the last build to view the map.',
@@ -177,6 +182,11 @@ const ko: Record<MessageCode, string> = {
   'init.httpExternal': '  HTTP: {from} 이 {base} 를 부릅니다 (호출 {count}개) — 맞는 repo 가 없어 바깥 서비스로 둡니다',
   'init.socketLink': '  Socket.io: {client} ↔ {server}',
   'init.features': '  {name} (파일 {files}개) → {name}.atlas.json: 기능 규칙 초안 {count}개 ({names})',
+  'init.jevIntro': '선택: TypeSafe Jev (외부 분류 API, TYPESAFE_API_KEY 필요). 켜지 않으면 아무것도 보내지 않습니다.',
+  'init.askClassify': '  기능 규칙에 안 맞는 파일을 Jev 로 분류할까요? 파일 경로 · 심볼 이름 · 의존 파일 경로를 보냅니다.',
+  'init.askVerify': '  중복 함수 후보를 Jev 로 확인할까요? 두 함수의 본문을 보냅니다.',
+  'init.jevOn': '  Jev 켬: {what} (workspace 에 저장, 빌드할 때마다 씀)',
+  'init.jevNoKey': '  TYPESAFE_API_KEY 가 없습니다. console.typesafe.ai 에서 키를 만들어 빌드 전에 export 하세요.',
   'init.confirm': '{dir} 에 workspace 를 쓸까요? [Y/n] ',
   'init.done':
     '{files} 를 만들었습니다.\n기능 규칙은 아직 초안("draft": true)이라 지도를 만들지 않습니다.\nClaude Code 에서 code-atlas 스킬로 다듬거나("이 repo 들 지도 그려줘"), {dir}/*.atlas.json 을 직접 고친 뒤 "draft": true 를 지우세요. 그다음 빌드해서 기능 분포 줄과 경고를 보고, 괜찮아질 때까지 고쳐 다시 빌드하세요:\n  npx -y github:frankzoey-lab/code-atlas {workspace}\n마지막 빌드에 --open 을 붙이면 지도가 열립니다.',
