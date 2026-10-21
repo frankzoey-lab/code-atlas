@@ -148,7 +148,7 @@ Every build adds an **Analysis** tab:
 "analysis": { "minTokens": 50, "minSimilarity": 0.85, "verifyLimit": 100 }
 ```
 
-`--verify-duplicates` asks [TypeSafe Jev](https://docs.typesafe.ai/introduction) whether the top `verifyLimit` candidates really do the same job and shows its answer next to each. It sends the two **function bodies** (first 3,000 characters each), names and paths, so only use it on code you may send to that API. Answers share the `.atlas-cache/jev.json` cache.
+`--verify-duplicates` asks [TypeSafe Jev](https://docs.typesafe.ai/introduction) whether the top `verifyLimit` candidates really behave the same (same results for the same inputs, apart from names, constants or formatting) and shows its answer next to each. Answers below `classify.minConfidence` (default 0.6) are shown as *unsure* and are not counted as the same. It sends the two **function bodies** (first 3,000 characters each), names and paths, so only use it on code you may send to that API. Answers share the `.atlas-cache/jev.json` cache.
 
 ## Limits
 

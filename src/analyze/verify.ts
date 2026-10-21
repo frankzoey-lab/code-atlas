@@ -5,16 +5,22 @@ import { t } from '../i18n.js';
 import { FunctionPrint } from './fingerprint.js';
 
 const INSTRUCTIONS =
-  'Do these two functions do the same job, so that one could replace the other (possibly with a parameter)? ' +
-  'Judge from what they compute and the APIs they call, not from their names or formatting.';
+  'Compare the two TypeScript/JavaScript functions in the state (name, path, source). ' +
+  'Answer "same" only if they implement the same behavior: given the same inputs they produce the same result and side effects, ' +
+  'apart from names, constant values or formatting, so one could replace the other with at most an extra parameter. ' +
+  'Answer "different" if they work on different data, call different APIs or endpoints, or produce different results, ' +
+  'even when their structure looks alike.';
 const CRITERIA = {
-  same: 'They do the same job; one could be merged into the other or replaced by a shared helper.',
-  different: 'They only look alike; they serve different purposes or behave differently.',
+  same: 'Same behavior apart from names, constants or formatting; one can replace the other with at most an extra parameter.',
+  different: 'Different behavior: different data, APIs, endpoints or results, even if the code is shaped alike.',
 };
 
 export interface VerifyStats {
   asked: number;
+  /** 신뢰도 기준 이상으로 같다고 본 것 */
   same: number;
+  /** 신뢰도가 기준보다 낮은 것 (같음 · 다름 어느 쪽이든) */
+  unsure: number;
   cacheHits: number;
   failed: number;
   inputTokens: number;
@@ -30,9 +36,11 @@ export async function verifyDuplicates(
   nodes: Map<string, AtlasNode>,
   model: string,
   limit: number,
+  /** 이보다 낮은 신뢰도의 답은 애매로 둔다 (classify.minConfidence) */
+  minConfidence: number,
   options: ClassifyOptions,
 ): Promise<VerifyStats> {
-  const stats: VerifyStats = { asked: 0, same: 0, cacheHits: 0, failed: 0, inputTokens: 0 };
+  const stats: VerifyStats = { asked: 0, same: 0, unsure: 0, cacheHits: 0, failed: 0, inputTokens: 0 };
   const apiKey = options.apiKey ?? process.env.TYPESAFE_API_KEY;
   if (!apiKey) throw new JevAuthError(t('jev.noKey'));
   const text = new Map(prints.map((p) => [p.id, p.text]));
@@ -64,8 +72,10 @@ export async function verifyDuplicates(
           answer = res.answer;
           put(key, answer);
         }
-        set.jev = { same: answer.choice === 'same', confidence: answer.confidence };
-        if (set.jev.same) stats.same += 1;
+        const sure = answer.confidence >= minConfidence;
+        set.jev = { same: answer.choice === 'same', confidence: answer.confidence, sure };
+        if (!sure) stats.unsure += 1;
+        else if (set.jev.same) stats.same += 1;
       } catch (e) {
         if (e instanceof JevAuthError) authError ??= e;
         else if (!authError) {
