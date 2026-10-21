@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `--verify-duplicates`: the question now asks whether the two functions behave the same (not just whether one could replace the other), and answers below `classify.minConfidence` are shown as unsure and not counted as the same. The changed question invalidates the Jev cache for duplicate checks, so the next build asks again (and is billed again).
 - `init` asks whether to use Jev for classification and for checking duplicates (default no) and saves it as `"jev"` in the workspace; the skill asks the same at the start.
 - Analysis tab: duplicate functions (structural fingerprints; identical sets and similar pairs, across repos), call cycles (mutual recursion) and import cycles, filterable by kind, similarity, feature and name. `--verify-duplicates` asks Jev whether the top candidates do the same job (sends function bodies). `--no-analysis` turns it off; settings under `analysis`.
 - Feature rules with the same name are merged into one feature (first group / color / description wins; matching order is unchanged).

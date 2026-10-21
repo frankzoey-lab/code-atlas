@@ -57,6 +57,7 @@ aside.right { border-left: 1px solid var(--line); }
 .an-badge { border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-size: 11.5px; }
 .an-badge.same { border-color: var(--ok); color: var(--ok); }
 .an-badge.diff { border-color: var(--muted); }
+.an-badge.unsure { border-style: dashed; color: var(--muted); }
 .an-members { display: grid; gap: 6px; }
 .an-members.pair { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .an-fn { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; background: var(--bg); }
@@ -304,7 +305,7 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
   const I18N = {
     en: {
       view: 'View', 'tab.focus': 'Focus', 'tab.map': 'Full map', 'tab.analysis': 'Analysis',
-      'an.searchPh': 'Function or file name', 'an.kinds': 'Show', 'an.dups': 'Duplicate functions', 'an.calls': 'Call cycles (mutual recursion)', 'an.imports': 'Import cycles', 'an.minSim': 'Minimum similarity', 'an.jevOnly': 'Only those Jev judged the same', 'an.features': 'Features with results (number of results; an item shows if any of its members is on)', 'an.identical': 'Identical structure · {n} functions', 'an.similar': 'Similar {pct}%', 'an.tokens': '{n} tokens', 'an.jevSame': 'Jev: same job {c}', 'an.jevDiff': 'Jev: different {c}', 'an.callCycle': 'Call cycle · {n} functions', 'an.importCycle': 'Import cycle · {n} files', 'an.more': '+{n} more in this cycle', 'an.none': 'Nothing matches the filters.', 'an.shown': '{n} of {total} shown', 'an.goFocus': 'Show in focus view', 'an.members': 'All members', 'an.jevFirstTwo': '(first two)', search: 'Search',
+      'an.searchPh': 'Function or file name', 'an.kinds': 'Show', 'an.dups': 'Duplicate functions', 'an.calls': 'Call cycles (mutual recursion)', 'an.imports': 'Import cycles', 'an.minSim': 'Minimum similarity', 'an.jevOnly': 'Only those Jev judged the same', 'an.features': 'Features with results (number of results; an item shows if any of its members is on)', 'an.identical': 'Identical structure · {n} functions', 'an.similar': 'Similar {pct}%', 'an.tokens': '{n} tokens', 'an.jevSame': 'Jev: same job {c}', 'an.jevDiff': 'Jev: different {c}', 'an.callCycle': 'Call cycle · {n} functions', 'an.importCycle': 'Import cycle · {n} files', 'an.more': '+{n} more in this cycle', 'an.none': 'Nothing matches the filters.', 'an.shown': '{n} of {total} shown', 'an.goFocus': 'Show in focus view', 'an.members': 'All members', 'an.jevFirstTwo': '(first two)', 'an.jevUnsure': 'Jev: unsure ({answer} {c})', 'an.answerSame': 'same', 'an.answerDiff': 'different', search: 'Search',
       'fx.searchPh': 'File, function or endpoint name', 'fx.unit': 'Unit', 'unit.file': 'File', 'unit.fn': 'Function',
       'fx.depth': 'Depth', 'fx.d1': '1 hop', 'fx.d2': '2 hops', 'fx.imports': 'Also show import-only relations',
       'fx.features': 'Features (unchecked ones are hidden)', 'fx.files': 'Files', 'fx.back': '← Back', 'fx.aria': 'Call relations of the selected item',
@@ -333,7 +334,7 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
     },
     ko: {
       view: '보기', 'tab.focus': '포커스', 'tab.map': '전체 지도', 'tab.analysis': '분석',
-      'an.searchPh': '함수 · 파일 이름', 'an.kinds': '보기', 'an.dups': '중복 함수', 'an.calls': '호출 순환 (상호 재귀)', 'an.imports': 'import 순환', 'an.minSim': '최소 유사도', 'an.jevOnly': 'Jev 가 같다고 본 것만', 'an.features': '결과가 있는 기능 (옆 숫자는 결과 수, 묶음 안 하나라도 켜진 기능이면 보임)', 'an.identical': '구조가 똑같음 · 함수 {n}개', 'an.similar': '비슷함 {pct}%', 'an.tokens': '토큰 {n}', 'an.jevSame': 'Jev: 같은 일 {c}', 'an.jevDiff': 'Jev: 다름 {c}', 'an.callCycle': '호출 순환 · 함수 {n}개', 'an.importCycle': 'import 순환 · 파일 {n}개', 'an.more': '이 순환에 {n}개 더', 'an.none': '필터에 맞는 것이 없습니다.', 'an.shown': '{total}개 중 {n}개', 'an.goFocus': '포커스로 보기', 'an.members': '전체 목록', 'an.jevFirstTwo': '(앞의 두 함수)', search: '찾기',
+      'an.searchPh': '함수 · 파일 이름', 'an.kinds': '보기', 'an.dups': '중복 함수', 'an.calls': '호출 순환 (상호 재귀)', 'an.imports': 'import 순환', 'an.minSim': '최소 유사도', 'an.jevOnly': 'Jev 가 같다고 본 것만', 'an.features': '결과가 있는 기능 (옆 숫자는 결과 수, 묶음 안 하나라도 켜진 기능이면 보임)', 'an.identical': '구조가 똑같음 · 함수 {n}개', 'an.similar': '비슷함 {pct}%', 'an.tokens': '토큰 {n}', 'an.jevSame': 'Jev: 같은 일 {c}', 'an.jevDiff': 'Jev: 다름 {c}', 'an.callCycle': '호출 순환 · 함수 {n}개', 'an.importCycle': 'import 순환 · 파일 {n}개', 'an.more': '이 순환에 {n}개 더', 'an.none': '필터에 맞는 것이 없습니다.', 'an.shown': '{total}개 중 {n}개', 'an.goFocus': '포커스로 보기', 'an.members': '전체 목록', 'an.jevFirstTwo': '(앞의 두 함수)', 'an.jevUnsure': 'Jev: 애매 ({answer} {c})', 'an.answerSame': '같음', 'an.answerDiff': '다름', search: '찾기',
       'fx.searchPh': '파일 · 함수 · 엔드포인트 이름', 'fx.unit': '단위', 'unit.file': '파일', 'unit.fn': '함수',
       'fx.depth': '깊이', 'fx.d1': '1단계', 'fx.d2': '2단계', 'fx.imports': 'import만 한 관계도 보기',
       'fx.features': '기능 (끄면 트리 · 이웃에서 숨김)', 'fx.files': '파일', 'fx.back': '← 뒤로', 'fx.aria': '선택한 것의 호출 관계',
@@ -1610,11 +1611,14 @@ input[type="search"] { width: 100%; padding: 7px 10px; border: 1px solid var(--l
     if (AN.dups) {
       for (const d of A.duplicates) {
         total++;
-        if (d.similarity < AN.minSim || (AN.jevOnly && !d.jev?.same) || !anVisible(d.members)) continue;
+        // 신뢰도가 기준보다 낮으면 같음 · 다름 대신 애매로 (예전 graph.json 은 sure 가 없어 확실한 답으로 본다)
+        const sure = d.jev && d.jev.sure !== false;
+        if (d.similarity < AN.minSim || (AN.jevOnly && !(sure && d.jev.same)) || !anVisible(d.members)) continue;
         const head = d.similarity === 1 ? T('an.identical', { n: d.members.length }) : T('an.similar', { pct: Math.round(d.similarity * 100) });
         // 셋 이상인 묶음은 앞의 두 함수로 물었다
-        const jevText = d.jev ? T(d.jev.same ? 'an.jevSame' : 'an.jevDiff', { c: Number(d.jev.confidence).toFixed(2) }) + (d.members.length > 2 ? ` ${T('an.jevFirstTwo')}` : '') : '';
-        const jev = d.jev ? `<span class="an-badge ${d.jev.same ? 'same' : 'diff'}">${esc(jevText)}</span>` : '';
+        const jevKey = !d.jev ? '' : !sure ? 'an.jevUnsure' : d.jev.same ? 'an.jevSame' : 'an.jevDiff';
+        const jevText = d.jev ? T(jevKey, { c: Number(d.jev.confidence).toFixed(2), answer: T(d.jev.same ? 'an.answerSame' : 'an.answerDiff') }) + (d.members.length > 2 ? ` ${T('an.jevFirstTwo')}` : '') : '';
+        const jev = d.jev ? `<span class="an-badge ${!sure ? 'unsure' : d.jev.same ? 'same' : 'diff'}">${esc(jevText)}</span>` : '';
         parts.push(`<div class="an-item"><div class="an-head"><b>${esc(head)}</b><span>${esc(T('an.tokens', { n: d.tokens }))}</span>${jev}</div>
           <div class="an-members${d.members.length === 2 ? ' pair' : ''}">${d.members.map(anFn).join('')}</div></div>`);
       }

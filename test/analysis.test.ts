@@ -76,19 +76,34 @@ describe('Jev 중복 확인', () => {
       sent.push(body);
       return reply(body);
     }) as unknown as typeof fetch;
-    const stats = await verifyDuplicates(a, analysis!.prints, nodes, 'jev-latest', 10, { repo, cacheDir, fetchImpl, apiKey: 'k', backoffMs: 1 });
+    const stats = await verifyDuplicates(a, analysis!.prints, nodes, 'jev-latest', 10, 0.6, { repo, cacheDir, fetchImpl, apiKey: 'k', backoffMs: 1 });
     return { a, stats, sent, cacheDir };
   };
-  const answer = (choice: string) => new Response(JSON.stringify({ answers: { same: { choice, confidence: 0.9 } }, usage: { input_tokens: 5 } }));
+  const answer = (choice: string, confidence = 0.9) => new Response(JSON.stringify({ answers: { same: { choice, confidence } }, usage: { input_tokens: 5 } }));
 
   it('두 함수의 본문을 보내 결과를 붙이고, 다시 돌리면 캐시를 쓴다', async () => {
     const first = await run(() => answer('same'));
     expect(first.stats.same).toBe(first.stats.asked);
-    expect(first.a.duplicates[0].jev).toEqual({ same: true, confidence: 0.9 });
+    expect(first.a.duplicates[0].jev).toEqual({ same: true, confidence: 0.9, sure: true });
     expect(JSON.stringify(first.sent[0])).toContain('item.price * item.qty');
     const again = await run(() => answer('different'), first.cacheDir);
     expect(again.sent).toHaveLength(0);
     expect(again.stats.cacheHits).toBe(again.stats.asked);
+  });
+
+  it('신뢰도가 기준보다 낮은 답은 애매로 두고 같음으로 세지 않는다', async () => {
+    const low = await run(() => answer('same', 0.3));
+    expect(low.stats.asked).toBeGreaterThan(0);
+    expect(low.stats.same).toBe(0);
+    expect(low.stats.unsure).toBe(low.stats.asked);
+    expect(low.a.duplicates[0].jev).toEqual({ same: true, confidence: 0.3, sure: false });
+    const lowDiff = await run(() => answer('different', 0.2));
+    expect(lowDiff.stats.unsure).toBe(lowDiff.stats.asked);
+    expect(lowDiff.a.duplicates[0].jev).toEqual({ same: false, confidence: 0.2, sure: false });
+    // 기준과 같은 신뢰도는 확실한 답 (분류의 `< minConfidence` 와 같은 경계)
+    const edge = await run(() => answer('same', 0.6));
+    expect(edge.stats.same).toBe(edge.stats.asked);
+    expect(edge.a.duplicates[0].jev?.sure).toBe(true);
   });
 
   it('401 이면 멈추고 JevAuthError', async () => {

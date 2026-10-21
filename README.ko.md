@@ -148,7 +148,7 @@ npx -y github:frankzoey-lab/code-atlas atlas/atlas.workspace.json --classify
 "analysis": { "minTokens": 50, "minSimilarity": 0.85, "verifyLimit": 100 }
 ```
 
-`--verify-duplicates` 를 주면 상위 `verifyLimit` 개 후보가 정말 같은 일을 하는지 [TypeSafe Jev](https://docs.typesafe.ai/introduction) 에 물어 각 항목 옆에 보여 줍니다. 두 함수의 **본문**(각 앞 3,000자) · 이름 · 경로를 보내므로, 그 API 로 보내도 되는 코드에만 쓰세요. 응답은 `.atlas-cache/jev.json` 캐시를 같이 씁니다.
+`--verify-duplicates` 를 주면 상위 `verifyLimit` 개 후보가 정말 같은 동작을 하는지(이름 · 상수 · 표기 말고는 같은 입력에 같은 결과) [TypeSafe Jev](https://docs.typesafe.ai/introduction) 에 물어 각 항목 옆에 보여 줍니다. 신뢰도가 `classify.minConfidence`(기본 0.6)보다 낮은 답은 *애매* 로 보이고 같다고 세지 않습니다. 두 함수의 **본문**(각 앞 3,000자) · 이름 · 경로를 보내므로, 그 API 로 보내도 되는 코드에만 쓰세요. 응답은 `.atlas-cache/jev.json` 캐시를 같이 씁니다.
 
 ## 한계
 

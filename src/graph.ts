@@ -101,8 +101,11 @@ export interface DuplicateSet {
   similarity: number;
   /** 가장 작은 함수의 정규화 토큰 수 */
   tokens: number;
-  /** --verify-duplicates 로 Jev 가 판정한 결과 */
-  jev?: { same: boolean; confidence: number };
+  /**
+   * --verify-duplicates 로 Jev 가 판정한 결과. same: Jev 의 답,
+   * sure: 신뢰도가 classify.minConfidence 이상인지 (false 면 애매. 예전 graph.json 에는 없고, 없으면 확실한 답으로 본다)
+   */
+  jev?: { same: boolean; confidence: number; sure?: boolean };
 }
 
 /** 서로 부르는(또는 import 하는) 묶음. path 는 대표 순환 하나 (처음과 끝이 같다) */

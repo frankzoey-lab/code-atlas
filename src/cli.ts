@@ -118,10 +118,11 @@ async function reportAnalysis(graph: AtlasGraph, prints: FunctionPrint[], config
   if (!jev.verify || !a.duplicates.length) return;
   const started = Date.now();
   try {
-    // workspace 에서 repo 마다 다르면 모델은 첫 repo, 개수는 가장 큰 값
+    // workspace 에서 repo 마다 다르면 모델은 첫 repo, 개수는 가장 큰 값, 신뢰도 기준은 가장 엄격한(큰) 값
     const model = configs[0].classify.model;
     const limit = Math.max(...configs.map((c) => c.analysis.verifyLimit));
-    const stats = await verifyDuplicates(a, prints, new Map(graph.nodes.map((n) => [n.id, n])), model, limit, {
+    const minConfidence = Math.max(...configs.map((c) => c.classify.minConfidence));
+    const stats = await verifyDuplicates(a, prints, new Map(graph.nodes.map((n) => [n.id, n])), model, limit, minConfidence, {
       repo: '', cacheDir: join(dirname(out), '.atlas-cache'), log: (line) => console.error(line),
     });
     console.error(t('cli.verifySummary', { ...stats, secs: secs(started) }));
